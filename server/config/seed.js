@@ -293,22 +293,80 @@ async function seed() {
   )).rows[0].id;
   await db.query(`INSERT INTO task_labels (task_id, label_id) VALUES ($1, $2)`, [t9, lDevOps]);
 
+  // Labels for Project 2 (Mobile App v2.0)
+  const lMobile = (await db.query(`INSERT INTO labels (project_id, name, color) VALUES ($1, $2, $3) RETURNING id`, [p2Id, 'Mobile', '#0EA5E9'])).rows[0].id;
+  const lAuth = (await db.query(`INSERT INTO labels (project_id, name, color) VALUES ($1, $2, $3) RETURNING id`, [p2Id, 'Security', '#F59E0B'])).rows[0].id;
+  const lOffline = (await db.query(`INSERT INTO labels (project_id, name, color) VALUES ($1, $2, $3) RETURNING id`, [p2Id, 'Core', '#8B5CF6'])).rows[0].id;
+
+  // Tasks for Project 2
+  const pt1 = (await db.query(
+    `INSERT INTO tasks (project_id, title, description, status, priority, position, assignee_id, creator_id, due_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+    [
+      p2Id,
+      'Biometric Authentication & Keychain Storage',
+      'Implement FaceID and Fingerprint biometric authentication with secure iOS Keychain and Android Keystore encryption.',
+      'IN PROGRESS',
+      'Urgent',
+      0,
+      sarahId,
+      sarahId,
+      dayOffset(3)
+    ]
+  )).rows[0].id;
+  await db.query(`INSERT INTO task_labels (task_id, label_id) VALUES ($1, $2)`, [pt1, lMobile]);
+  await db.query(`INSERT INTO task_labels (task_id, label_id) VALUES ($1, $2)`, [pt1, lAuth]);
+
+  const pt2 = (await db.query(
+    `INSERT INTO tasks (project_id, title, description, status, priority, position, assignee_id, creator_id, due_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+    [
+      p2Id,
+      'Offline-First SQLite Sync Engine',
+      'Implement background sync engine with Conflict-Free Replicated Data Types (CRDT) for seamless offline mode.',
+      'TODO',
+      'High',
+      0,
+      johnId,
+      sarahId,
+      dayOffset(7)
+    ]
+  )).rows[0].id;
+  await db.query(`INSERT INTO task_labels (task_id, label_id) VALUES ($1, $2)`, [pt2, lOffline]);
+
+  const pt3 = (await db.query(
+    `INSERT INTO tasks (project_id, title, description, status, priority, position, assignee_id, creator_id, due_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+    [
+      p2Id,
+      'Push Notification Service Worker Integration',
+      'Configure APNs (Apple Push Notification service) and FCM for real-time task assignment alerts.',
+      'DONE',
+      'Medium',
+      0,
+      alexId,
+      sarahId,
+      dayOffset(-1)
+    ]
+  )).rows[0].id;
+  await db.query(`INSERT INTO task_labels (task_id, label_id) VALUES ($1, $2)`, [pt3, lMobile]);
+
   // 7. Comments for Task 5 (Stripe Checkout)
   const c1 = (await db.query(
     `INSERT INTO comments (task_id, user_id, parent_id, content, created_at)
-     VALUES ($1, $2, NULL, $3, DATETIME('now', '-2 hours')) RETURNING id`,
+     VALUES ($1, $2, NULL, $3, NOW() - INTERVAL '2 hours') RETURNING id`,
     [t5, johnId, 'API integration and Stripe webhook listener are completed. Tested test card transactions successfully.']
   )).rows[0].id;
 
   const c2 = (await db.query(
     `INSERT INTO comments (task_id, user_id, parent_id, content, created_at)
-     VALUES ($1, $2, $3, $4, DATETIME('now', '-1 hour')) RETURNING id`,
+     VALUES ($1, $2, $3, $4, NOW() - INTERVAL '1 hour') RETURNING id`,
     [t5, sarahId, c1, 'Great work John! I will test the checkout modal styling on mobile viewports this afternoon.']
   )).rows[0].id;
 
   await db.query(
     `INSERT INTO comments (task_id, user_id, parent_id, content, created_at)
-     VALUES ($1, $2, $3, $4, DATETIME('now', '-25 minutes'))`,
+     VALUES ($1, $2, $3, $4, NOW() - INTERVAL '25 minutes')`,
     [t5, alexId, c2, 'Excellent progress team. Once verified, let us deploy to the staging environment.']
   );
 
@@ -329,32 +387,32 @@ async function seed() {
   // 9. Activity Logs for Project 1
   await db.query(
     `INSERT INTO activity_logs (project_id, user_id, action, entity_type, entity_id, metadata, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, DATETIME('now', '-3 days'))`,
+     VALUES ($1, $2, $3, $4, $5, $6, NOW() - INTERVAL '3 days')`,
     [p1Id, alexId, 'created_project', 'project', p1Id, JSON.stringify({ name: 'E-Commerce Platform Redesign' })]
   );
 
   await db.query(
     `INSERT INTO activity_logs (project_id, user_id, action, entity_type, entity_id, metadata, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, DATETIME('now', '-1 day'))`,
+     VALUES ($1, $2, $3, $4, $5, $6, NOW() - INTERVAL '1 day')`,
     [p1Id, alexId, 'created_task', 'task', t5, JSON.stringify({ title: 'Stripe Payment Gateway & Webhook Reconciliation' })]
   );
 
   await db.query(
     `INSERT INTO activity_logs (project_id, user_id, action, entity_type, entity_id, metadata, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, DATETIME('now', '-2 hours'))`,
+     VALUES ($1, $2, $3, $4, $5, $6, NOW() - INTERVAL '2 hours')`,
     [p1Id, johnId, 'moved_task', 'task', t5, JSON.stringify({ from: 'TODO', to: 'IN PROGRESS', title: 'Stripe Payment Gateway' })]
   );
 
   await db.query(
     `INSERT INTO activity_logs (project_id, user_id, action, entity_type, entity_id, metadata, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, DATETIME('now', '-25 minutes'))`,
+     VALUES ($1, $2, $3, $4, $5, $6, NOW() - INTERVAL '25 minutes')`,
     [p1Id, alexId, 'added_comment', 'comment', t5, JSON.stringify({ taskTitle: 'Stripe Payment Gateway' })]
   );
 
   // 10. Notifications
   await db.query(
     `INSERT INTO notifications (user_id, sender_id, type, title, message, link, is_read, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, DATETIME('now', '-2 hours'))`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW() - INTERVAL '2 hours')`,
     [
       alexId,
       johnId,
@@ -362,13 +420,13 @@ async function seed() {
       'New Comment',
       'John commented on "Stripe Payment Gateway & Webhook Reconciliation"',
       `/projects/${p1Id}?task=${t5}`,
-      0
+      false
     ]
   );
 
   await db.query(
     `INSERT INTO notifications (user_id, sender_id, type, title, message, link, is_read, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, DATETIME('now', '-1 hour'))`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW() - INTERVAL '1 hour')`,
     [
       alexId,
       sarahId,
@@ -376,13 +434,13 @@ async function seed() {
       'Task Review',
       'Sarah moved "Navigation Header & Mobile Drawer Redesign" to IN REVIEW',
       `/projects/${p1Id}?task=${t7}`,
-      0
+      false
     ]
   );
 
   await db.query(
     `INSERT INTO notifications (user_id, sender_id, type, title, message, link, is_read, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, DATETIME('now', '-30 minutes'))`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW() - INTERVAL '30 minutes')`,
     [
       alexId,
       null,
@@ -390,7 +448,7 @@ async function seed() {
       'Deadline Today',
       '"Navigation Header & Mobile Drawer Redesign" is due today',
       `/projects/${p1Id}?task=${t7}`,
-      0
+      false
     ]
   );
 

@@ -10,7 +10,7 @@ async function createNotification(userId, senderId, type, title, message, link =
 
     const res = await db.query(
       `INSERT INTO notifications (user_id, sender_id, type, title, message, link, is_read)
-       VALUES ($1, $2, $3, $4, $5, $6, 0) RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, FALSE) RETURNING *`,
       [userId, senderId, type, title, message, link]
     );
 

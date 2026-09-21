@@ -74,7 +74,7 @@ async function runTests() {
       headers: authHeaders
     });
     assert(projs.status === 200 && Array.isArray(projs.body.projects) && projs.body.projects.length > 0, 'Fetched active projects list');
-    const testProjectId = projs.body.projects[0].id;
+    const testProjectId = projs.body.projects.find(p => p.total_tasks > 0)?.id || projs.body.projects[0].id;
 
     // 5. Fetch project tasks
     const tasks = await request({

@@ -22,7 +22,7 @@ exports.getProjects = async (req, res) => {
       JOIN users u ON p.owner_id = u.id
       LEFT JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = $1
       WHERE (p.owner_id = $1 OR pm.user_id = $1)
-        ${includeArchived ? '' : 'AND (p.is_archived = 0 OR p.is_archived IS FALSE)'}
+        ${includeArchived ? '' : 'AND (p.is_archived IS FALSE)'}
       ORDER BY p.updated_at DESC
     `;
 
@@ -149,7 +149,7 @@ exports.createProject = async (req, res) => {
 
     const projRes = await db.query(
       `INSERT INTO projects (name, description, color, priority, start_date, due_date, status, is_archived, owner_id)
-       VALUES ($1, $2, $3, $4, $5, $6, 'Active', 0, $7) RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, 'Active', FALSE, $7) RETURNING *`,
       [
         name.trim(),
         description || '',
@@ -297,7 +297,7 @@ exports.archiveProject = async (req, res) => {
   try {
     const projectId = req.params.id;
     const result = await db.query(
-      'UPDATE projects SET is_archived = 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *',
+      'UPDATE projects SET is_archived = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *',
       [projectId]
     );
     if (result.rows.length === 0) {
@@ -317,7 +317,7 @@ exports.restoreProject = async (req, res) => {
   try {
     const projectId = req.params.id;
     const result = await db.query(
-      'UPDATE projects SET is_archived = 0, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *',
+      'UPDATE projects SET is_archived = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *',
       [projectId]
     );
     if (result.rows.length === 0) {

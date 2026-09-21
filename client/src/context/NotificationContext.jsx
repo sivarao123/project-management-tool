@@ -55,7 +55,7 @@ export const NotificationProvider = ({ children }) => {
     try {
       await api.put(`/notifications/${id}/read`);
       setNotifications(prev =>
-        prev.map(n => (n.id === id ? { ...n, is_read: 1 } : n))
+        prev.map(n => (n.id === id ? { ...n, is_read: true } : n))
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (err) {
@@ -66,7 +66,7 @@ export const NotificationProvider = ({ children }) => {
   const markAllAsRead = async () => {
     try {
       await api.put('/notifications/read-all');
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch (err) {
       console.error('Failed to mark all read:', err.message);

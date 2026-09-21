@@ -16,7 +16,7 @@ exports.getNotifications = async (req, res) => {
     );
 
     const unreadCountRes = await db.query(
-      'SELECT COUNT(*) as count FROM notifications WHERE user_id = $1 AND (is_read = 0 OR is_read IS FALSE)',
+      'SELECT COUNT(*) as count FROM notifications WHERE user_id = $1 AND (is_read IS FALSE OR is_read = FALSE)',
       [userId]
     );
 
@@ -38,7 +38,7 @@ exports.markAsRead = async (req, res) => {
     const userId = req.user.id;
 
     await db.query(
-      'UPDATE notifications SET is_read = 1 WHERE id = $1 AND user_id = $2',
+      'UPDATE notifications SET is_read = TRUE WHERE id = $1 AND user_id = $2',
       [notificationId, userId]
     );
 
@@ -55,7 +55,7 @@ exports.markAllAsRead = async (req, res) => {
     const userId = req.user.id;
 
     await db.query(
-      'UPDATE notifications SET is_read = 1 WHERE user_id = $1',
+      'UPDATE notifications SET is_read = TRUE WHERE user_id = $1',
       [userId]
     );
 
