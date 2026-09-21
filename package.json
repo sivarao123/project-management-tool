@@ -1,0 +1,14 @@
+{
+  "name": "taskflow-workspace",
+  "version": "1.0.0",
+  "description": "TaskFlow - Full Stack Real-time Project Management System",
+  "scripts": {
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "seed": "npm --prefix server run seed",
+    "server": "npm --prefix server run dev",
+    "client": "npm --prefix client run dev"
+  },
+  "keywords": ["taskflow", "project-management", "kanban", "trello", "asana"],
+  "author": "CodeAlpha Developer",
+  "license": "MIT"
+}

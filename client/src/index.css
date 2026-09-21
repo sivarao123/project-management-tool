@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 selection:bg-indigo-500 selection:text-white;
+  }
+}
+
+/* Custom modern scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Kanban column custom scroll */
+.kanban-column-scroll {
+  scrollbar-gutter: stable;
+}
+
+/* Drag and drop transition styling */
+.card-dragging {
+  opacity: 0.4;
+  transform: scale(0.98);
+}
+
+.drop-target-active {
+  background-color: rgba(99, 102, 241, 0.08);
+  border-color: #6366f1;
+}
