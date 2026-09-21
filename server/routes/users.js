@@ -6,5 +6,7 @@ const { authenticate } = require('../middleware/auth');
 router.use(authenticate);
 
 router.get('/', userController.getAllUsers);
+router.post('/:userId/projects', userController.assignUserToProject);
+router.delete('/:userId/projects/:projectId', userController.removeUserFromProject);
 
 module.exports = router;

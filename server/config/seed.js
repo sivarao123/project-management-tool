@@ -100,11 +100,45 @@ async function seed() {
       today.toISOString().split('T')[0],
       nextWeek.toISOString().split('T')[0],
       'Active',
-      0,
+      false,
       sarahId
     ]
   );
   const p2Id = p2.rows[0].id;
+
+  const p3 = await db.query(
+    `INSERT INTO projects (name, description, color, priority, start_date, due_date, status, is_archived, owner_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+    [
+      'AI Analytics Dashboard',
+      'Machine learning powered velocity forecasting, automated sprint summaries, and intelligent workload balancing.',
+      '#10B981',
+      'High',
+      today.toISOString().split('T')[0],
+      nextMonth.toISOString().split('T')[0],
+      'Active',
+      false,
+      johnId
+    ]
+  );
+  const p3Id = p3.rows[0].id;
+
+  const p4 = await db.query(
+    `INSERT INTO projects (name, description, color, priority, start_date, due_date, status, is_archived, owner_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+    [
+      'Design System & Brand Guidelines',
+      'Comprehensive design tokens, reusable Tailwind component library, and WCAG AA accessibility audit.',
+      '#EC4899',
+      'Medium',
+      today.toISOString().split('T')[0],
+      nextMonth.toISOString().split('T')[0],
+      'Active',
+      false,
+      sarahId
+    ]
+  );
+  const p4Id = p4.rows[0].id;
 
   // 4. Project Members
   // Project 1 members
@@ -116,6 +150,15 @@ async function seed() {
   await db.query(`INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3)`, [p2Id, sarahId, 'Owner']);
   await db.query(`INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3)`, [p2Id, alexId, 'Admin']);
   await db.query(`INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3)`, [p2Id, johnId, 'Member']);
+
+  // Project 3 members
+  await db.query(`INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3)`, [p3Id, johnId, 'Owner']);
+  await db.query(`INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3)`, [p3Id, alexId, 'Admin']);
+  await db.query(`INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3)`, [p3Id, sarahId, 'Member']);
+
+  // Project 4 members
+  await db.query(`INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3)`, [p4Id, sarahId, 'Owner']);
+  await db.query(`INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3)`, [p4Id, alexId, 'Admin']);
 
   // 5. Labels for Project 1
   const lFrontend = (await db.query(`INSERT INTO labels (project_id, name, color) VALUES ($1, $2, $3) RETURNING id`, [p1Id, 'Frontend', '#3B82F6'])).rows[0].id;
@@ -350,6 +393,82 @@ async function seed() {
     ]
   )).rows[0].id;
   await db.query(`INSERT INTO task_labels (task_id, label_id) VALUES ($1, $2)`, [pt3, lMobile]);
+
+  // Labels & Tasks for Project 3 (AI Analytics Dashboard)
+  const lML = (await db.query(`INSERT INTO labels (project_id, name, color) VALUES ($1, $2, $3) RETURNING id`, [p3Id, 'Machine Learning', '#10B981'])).rows[0].id;
+  const lTelemetry = (await db.query(`INSERT INTO labels (project_id, name, color) VALUES ($1, $2, $3) RETURNING id`, [p3Id, 'Telemetry', '#6366F1'])).rows[0].id;
+
+  const p3t1 = (await db.query(
+    `INSERT INTO tasks (project_id, title, description, status, priority, position, assignee_id, creator_id, due_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+    [
+      p3Id,
+      'Train predictive velocity model on past sprints',
+      'Analyze historical burndown rates and build regression estimator for milestone delivery predictions.',
+      'IN PROGRESS',
+      'High',
+      0,
+      johnId,
+      johnId,
+      dayOffset(5)
+    ]
+  )).rows[0].id;
+  await db.query(`INSERT INTO task_labels (task_id, label_id) VALUES ($1, $2)`, [p3t1, lML]);
+
+  const p3t2 = (await db.query(
+    `INSERT INTO tasks (project_id, title, description, status, priority, position, assignee_id, creator_id, due_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+    [
+      p3Id,
+      'Real-time WebSocket telemetry aggregation',
+      'Ingest live user interaction events and render realtime throughput histograms.',
+      'TODO',
+      'Medium',
+      0,
+      alexId,
+      johnId,
+      dayOffset(10)
+    ]
+  )).rows[0].id;
+  await db.query(`INSERT INTO task_labels (task_id, label_id) VALUES ($1, $2)`, [p3t2, lTelemetry]);
+
+  // Labels & Tasks for Project 4 (Design System & Brand Guidelines)
+  const lA11y = (await db.query(`INSERT INTO labels (project_id, name, color) VALUES ($1, $2, $3) RETURNING id`, [p4Id, 'A11y', '#F59E0B'])).rows[0].id;
+  const lTokens = (await db.query(`INSERT INTO labels (project_id, name, color) VALUES ($1, $2, $3) RETURNING id`, [p4Id, 'Design Tokens', '#EC4899'])).rows[0].id;
+
+  const p4t1 = (await db.query(
+    `INSERT INTO tasks (project_id, title, description, status, priority, position, assignee_id, creator_id, due_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+    [
+      p4Id,
+      'Audit WCAG 2.1 AA accessibility contrast across components',
+      'Ensure all button states, typography tokens, and focus rings meet 4.5:1 contrast ratio standards.',
+      'IN PROGRESS',
+      'Urgent',
+      0,
+      sarahId,
+      sarahId,
+      dayOffset(2)
+    ]
+  )).rows[0].id;
+  await db.query(`INSERT INTO task_labels (task_id, label_id) VALUES ($1, $2)`, [p4t1, lA11y]);
+
+  const p4t2 = (await db.query(
+    `INSERT INTO tasks (project_id, title, description, status, priority, position, assignee_id, creator_id, due_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+    [
+      p4Id,
+      'Standardize dark mode token definitions',
+      'Build semantic CSS variables for surface, text, and border tokens with seamless transition support.',
+      'DONE',
+      'Low',
+      0,
+      alexId,
+      sarahId,
+      dayOffset(-3)
+    ]
+  )).rows[0].id;
+  await db.query(`INSERT INTO task_labels (task_id, label_id) VALUES ($1, $2)`, [p4t2, lTokens]);
 
   // 7. Comments for Task 5 (Stripe Checkout)
   const c1 = (await db.query(
