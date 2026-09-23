@@ -11,7 +11,8 @@ import {
   Plus, 
   Calendar, 
   Activity,
-  Layers
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -100,17 +101,25 @@ const Dashboard = () => {
           </p>
         </div>
 
-        <div className="relative z-10 flex items-center gap-3 shrink-0">
+        <div className="relative z-10 flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', metaKey: true }))}
+            className="px-4 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-900 rounded-xl text-xs font-black shadow-lg shadow-amber-500/20 transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95"
+            title="Open TaskFlow AI Copilot (⌘J)"
+          >
+            <Sparkles className="w-4 h-4 text-slate-900" />
+            <span>AI Standup Briefing</span>
+          </button>
           <button
             onClick={() => navigate('/projects')}
-            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 active:bg-white/30 text-white rounded-xl text-xs font-semibold backdrop-blur-md transition-all flex items-center gap-1.5"
+            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 active:bg-white/30 text-white rounded-xl text-xs font-semibold backdrop-blur-md transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <span>View Projects</span>
             <ArrowUpRight className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => navigate('/tasks')}
-            className="px-4 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-500/30 transition-all flex items-center gap-1.5"
+            className="px-4 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-500/30 transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <CheckSquare className="w-3.5 h-3.5" />
             <span>My Tasks</span>
