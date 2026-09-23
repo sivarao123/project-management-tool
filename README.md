@@ -63,6 +63,17 @@ A modern, production-grade project management application inspired by Trello and
 * **Productivity Distribution Charts**: Visual breakdown of tasks by column status and priority urgency.
 * **Live Recent Activity Stream**: Chronological feed of team actions across all projects.
 
+### 10. Enterprise-Grade Agentic AI System ("TaskFlow Copilot / Nova")
+* **Global Autonomous Copilot Drawer**: Accessible across all pages via floating badge, navbar button, or `⌘J` / `Ctrl+J`.
+* **Multi-Step Reasoning Trace**: Transparent disclosure of agent execution steps (`[1. Parsing intent] -> [2. Querying PostgreSQL telemetry] -> [3. Synthesizing action plan]`).
+* **Interactive Action Cards**: Proposed database modifications (creating sprint user stories, rebalancing team assignments, setting deadlines) render as interactive cards with a 1-click **"Apply to Board"** trigger.
+* **In-Situ Kanban Sprint Copilot**: Launched directly from board toolbar:
+  1. *Feature Decomposition*: Decomposes any product initiative into 4 sprint-ready user stories with acceptance criteria.
+  2. *Sprint Health & Risks*: Proactively surfaces overdue items, completion velocity, and review bottlenecks.
+  3. *Workload Balancer*: Evaluates team capacity distributions and recommends task rebalancing.
+* **Task Modal AI Specification Enhancer**: 1-click **"✨ AI Enhance Specs"** on any task modal to generate detailed acceptance criteria, edge cases, and subtask checklists.
+* **Dual-Core AI Engine**: Official Google GenAI SDK (`gemini-3.8-flash`) + Intelligent Autonomous Fallback Engine ensuring 100% functionality with or without external API keys.
+
 ---
 
 ## 🏗️ Architecture & Tech Stack
@@ -218,6 +229,30 @@ This tests:
 * `GET    /api/users` — Team members directory
 * `POST   /api/tasks/:taskId/attachments` — Upload file attachment
 * `DELETE /api/attachments/:id` — Delete file attachment
+
+### Agentic AI Endpoints
+* `POST   /api/ai/agent` — Primary autonomous Copilot chat & multi-step command center
+* `POST   /api/ai/breakdown` — Feature-to-backlog decomposition into user stories
+* `POST   /api/ai/enhance-task` — Task specification, acceptance criteria & subtask generator
+* `POST   /api/ai/standup` — Daily standup & sprint health intelligence report
+* `POST   /api/ai/execute-actions` — Batched execution of approved AI action items into PostgreSQL
+
+---
+
+## 🧪 Comprehensive Automated Test Suites
+
+TaskFlow includes 3 end-to-end automated verification suites:
+
+```bash
+# 1. Full REST API Verification (12/12 passing)
+node test-api.js
+
+# 2. Multi-Window Real-Time WebSocket Verification (12/12 passing)
+node test-realtime.js
+
+# 3. Autonomous Agentic AI Verification (13/13 passing)
+node test-ai-agent.js
+```
 
 ---
 
