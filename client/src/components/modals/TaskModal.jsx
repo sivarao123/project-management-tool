@@ -16,7 +16,8 @@ import {
   Plus, 
   AlertCircle,
   CornerDownRight,
-  Loader2
+  Loader2,
+  Sparkles
 } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -46,6 +47,7 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
   const [title, setTitle] = useState('');
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [description, setDescription] = useState('');
+  const [isEnhancing, setIsEnhancing] = useState(false);
 
   // Comment input
   const [commentText, setCommentText] = useState('');
@@ -187,6 +189,28 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
     setIsEditingDesc(false);
     if (description !== task.description) {
       await handleUpdate({ description: description.trim() });
+    }
+  };
+
+  const handleAIEnhance = async () => {
+    try {
+      setIsEnhancing(true);
+      const res = await api.post('/ai/enhance-task', {
+        title: task.title,
+        description: task.description || ''
+      });
+
+      if (res.enhancedDescription) {
+        setDescription(res.enhancedDescription);
+        await handleUpdate({
+          description: res.enhancedDescription,
+          priority: res.suggestedPriority || task.priority
+        });
+      }
+    } catch (err) {
+      alert(`AI enhancement failed: ${err.message}`);
+    } finally {
+      setIsEnhancing(false);
     }
   };
 
@@ -417,7 +441,19 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
             {/* Description */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                <span>Description</span>
+                <div className="flex items-center gap-2">
+                  <span>Description</span>
+                  <button
+                    type="button"
+                    onClick={handleAIEnhance}
+                    disabled={isEnhancing}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                    title="Generate acceptance criteria and technical specifications"
+                  >
+                    <Sparkles className="w-3 h-3 text-indigo-600" />
+                    <span>{isEnhancing ? 'Enhancing...' : '✨ AI Enhance Specs'}</span>
+                  </button>
+                </div>
                 {!isEditingDesc && (
                   <button
                     onClick={() => setIsEditingDesc(true)}

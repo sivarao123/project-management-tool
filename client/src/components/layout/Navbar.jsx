@@ -9,7 +9,8 @@ import {
   Settings, 
   LogOut, 
   FolderKanban, 
-  CheckSquare 
+  CheckSquare,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -67,7 +68,17 @@ const Navbar = ({ onToggleSidebar, onOpenNewProject, onOpenNewTask }) => {
         </div>
 
         {/* Right Section: Quick Action + Notifications + Profile */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Ask AI Copilot button */}
+          <button
+            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', metaKey: true }))}
+            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 text-indigo-700 border border-indigo-200/80 rounded-xl text-xs sm:text-sm font-bold shadow-2xs transition-all cursor-pointer hover:scale-105 active:scale-95"
+            title="Ask TaskFlow AI Copilot (⌘J)"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600 animate-spin" style={{ animationDuration: '8s' }} />
+            <span className="hidden md:inline">Ask AI</span>
+          </button>
+
           {/* Quick Create Dropdown */}
           <div className="relative">
             <button

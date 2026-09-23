@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import NewProjectModal from '../modals/NewProjectModal';
 import NewTaskModal from '../modals/NewTaskModal';
+import TaskFlowCopilot from '../ai/TaskFlowCopilot';
 import { useNotifications } from '../../context/NotificationContext';
 import { X, Bell } from 'lucide-react';
 
@@ -78,6 +79,9 @@ const AppLayout = () => {
           navigate(`/projects/${task.project_id}?task=${task.id}`);
         }}
       />
+
+      {/* Global TaskFlow AI Copilot */}
+      <TaskFlowCopilot />
     </div>
   );
 };

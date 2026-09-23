@@ -16,6 +16,7 @@ const activityRoutes = require('./routes/activities');
 const searchRoutes = require('./routes/search');
 const attachmentRoutes = require('./routes/attachments');
 const userRoutes = require('./routes/users');
+const aiRoutes = require('./routes/ai');
 
 const app = express();
 const server = http.createServer(app);
@@ -59,6 +60,7 @@ app.use('/api/activities', activityRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/attachments', attachmentRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Serve frontend build if present
 const clientDist = path.join(__dirname, '..', 'client', 'dist');

@@ -23,7 +23,8 @@ import {
   Archive, 
   RotateCcw,
   Check,
-  ChevronDown
+  ChevronDown,
+  Sparkles
 } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -31,6 +32,7 @@ import { useSocket } from '../context/SocketContext';
 import TaskModal from '../components/modals/TaskModal';
 import NewTaskModal from '../components/modals/NewTaskModal';
 import InviteMemberModal from '../components/modals/InviteMemberModal';
+import SprintAIAssistantModal from '../components/ai/SprintAIAssistantModal';
 import { formatDistanceToNow, format } from 'date-fns';
 
 const COLUMNS = ['BACKLOG', 'TODO', 'IN PROGRESS', 'IN REVIEW', 'DONE'];
@@ -68,6 +70,7 @@ const ProjectWorkspace = () => {
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   const [newTaskDefaultStatus, setNewTaskDefaultStatus] = useState('TODO');
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [isAICopilotOpen, setIsAICopilotOpen] = useState(false);
 
   // Drag and drop state
   const [draggingTaskId, setDraggingTaskId] = useState(null);
@@ -381,6 +384,15 @@ const ProjectWorkspace = () => {
 
         {/* Action buttons */}
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setIsAICopilotOpen(true)}
+            className="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-200 transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95"
+            title="Open AI Sprint Copilot"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>AI Sprint Copilot</span>
+          </button>
+
           <button
             onClick={() => setIsInviteOpen(true)}
             className="px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
@@ -982,6 +994,15 @@ const ProjectWorkspace = () => {
             members: [...(prev.members || []), newMember]
           }));
         }}
+      />
+
+      {/* AI Sprint Assistant Modal */}
+      <SprintAIAssistantModal
+        isOpen={isAICopilotOpen}
+        onClose={() => setIsAICopilotOpen(false)}
+        projectId={projectId}
+        projectName={project.name}
+        onTasksCreated={loadWorkspace}
       />
 
     </div>
