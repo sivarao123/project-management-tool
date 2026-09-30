@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: taskflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: taskflow
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: taskflow_password_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskflow -d taskflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend-java
+      dockerfile: Dockerfile
+    container_name: taskflow-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 5001
+      SOCKETIO_PORT: 9092
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: taskflow
+      PGUSER: taskflow
+      PGPASSWORD: taskflow_password_2026
+      JWT_SECRET: taskflow-super-secret-jwt-key-2026-taskflow-super-secret-jwt-key-2026-prod
+    ports:
+      - "5001:5001"
+      - "9092:9092"
+    volumes:
+      - uploads_data:/app/uploads
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: taskflow-client
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "5173:80"
+
+volumes:
+  pgdata:
+  uploads_data:

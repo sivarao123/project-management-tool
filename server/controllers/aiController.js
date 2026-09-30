@@ -78,6 +78,35 @@ exports.generateStandup = async (req, res) => {
   }
 };
 
+// Helper to fetch enriched task for real-time broadcast
+async function fetchEnrichedTaskById(taskId) {
+  const taskRes = await db.query(
+    `SELECT 
+       t.*,
+       p.name as project_name,
+       p.color as project_color,
+       u.name as assignee_name,
+       u.avatar_url as assignee_avatar,
+       u.email as assignee_email,
+       c.name as creator_name,
+       c.avatar_url as creator_avatar,
+       (SELECT COUNT(*) FROM comments cm WHERE cm.task_id = t.id) as comments_count,
+       (SELECT COUNT(*) FROM attachments at WHERE at.task_id = t.id) as attachments_count
+     FROM tasks t
+     JOIN projects p ON t.project_id = p.id
+     LEFT JOIN users u ON t.assignee_id = u.id
+     LEFT JOIN users c ON t.creator_id = c.id
+     WHERE t.id = $1`,
+    [taskId]
+  );
+  if (taskRes.rows.length === 0) return null;
+  const task = taskRes.rows[0];
+  task.labels = [];
+  task.comments_count = Number(task.comments_count) || 0;
+  task.attachments_count = Number(task.attachments_count) || 0;
+  return task;
+}
+
 // 5. Execute Approved AI Actions into Database
 exports.executeActions = async (req, res) => {
   try {
@@ -110,7 +139,7 @@ exports.executeActions = async (req, res) => {
 
         const insertRes = await db.query(
           `INSERT INTO tasks (project_id, title, description, status, priority, position, assignee_id, creator_id, due_date)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
           [
             targetProjectId,
             act.title,
@@ -124,12 +153,8 @@ exports.executeActions = async (req, res) => {
           ]
         );
 
-        const createdTask = insertRes.rows[0];
-
-        // Enrich with basic relations
-        createdTask.labels = [];
-        createdTask.comments_count = 0;
-        createdTask.attachments_count = 0;
+        const newTaskId = insertRes.rows[0].id;
+        const createdTask = await fetchEnrichedTaskById(newTaskId);
 
         await logActivity(targetProjectId, userId, 'created_task', 'task', createdTask.id, {
           title: createdTask.title,
@@ -145,9 +170,8 @@ exports.executeActions = async (req, res) => {
           [act.newAssigneeId, act.taskId]
         );
 
-        const taskRes = await db.query('SELECT * FROM tasks WHERE id = $1', [act.taskId]);
-        if (taskRes.rows.length > 0) {
-          const updated = taskRes.rows[0];
+        const updated = await fetchEnrichedTaskById(act.taskId);
+        if (updated) {
           emitToProject(targetProjectId, 'task:updated', updated);
 
           await logActivity(targetProjectId, userId, 'assigned_task', 'task', act.taskId, {
@@ -164,9 +188,8 @@ exports.executeActions = async (req, res) => {
           [act.priority, act.taskId]
         );
 
-        const taskRes = await db.query('SELECT * FROM tasks WHERE id = $1', [act.taskId]);
-        if (taskRes.rows.length > 0) {
-          const updated = taskRes.rows[0];
+        const updated = await fetchEnrichedTaskById(act.taskId);
+        if (updated) {
           emitToProject(targetProjectId, 'task:updated', updated);
           results.push({ action: 'update_priority', taskId: act.taskId, status: 'success' });
         }

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, FolderKanban, Loader2, Check } from 'lucide-react';
+import { X, FolderKanban, Check } from 'lucide-react';
 import api from '../../services/api';
+import { useNotifications } from '../../context/NotificationContext';
+import Button from '../common/Button';
 
 const COLOR_PRESETS = [
   '#4F46E5', // Indigo
@@ -14,6 +16,7 @@ const COLOR_PRESETS = [
 ];
 
 const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
+  const { showToast } = useNotifications();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#4F46E5');
@@ -26,6 +29,11 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
 
   useEffect(() => {
     if (isOpen) {
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') onClose();
+      };
+      window.addEventListener('keydown', handleKeyDown);
+
       setName('');
       setDescription('');
       setColor('#4F46E5');
@@ -38,8 +46,10 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
       api.get('/users').then(res => {
         if (res.users) setAllUsers(res.users);
       }).catch(() => setAllUsers([]));
+
+      return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -66,28 +76,34 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
       });
 
       if (res.project) {
+        showToast({ type: 'success', title: 'Project Created', message: res.project.name });
         onProjectCreated?.(res.project);
         onClose();
       }
     } catch (err) {
-      alert('Failed to create project: ' + err.message);
+      showToast({ type: 'error', title: 'Creation Failed', message: err.message });
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/70 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-white dark:bg-[#111418] w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200/80 dark:border-white/[0.08] overflow-hidden flex flex-col max-h-[90vh] text-slate-900 dark:text-slate-100 transition-colors">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-white/[0.08] flex items-center justify-between bg-slate-50/50 dark:bg-[#171A1F]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
               <FolderKanban className="w-4 h-4" />
             </div>
-            <h3 className="text-sm font-bold text-slate-800">Create New Project</h3>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Create New Project</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg">
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -96,13 +112,13 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
           {/* Project Name */}
           <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">Project Name</label>
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Project Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Mobile App Redesign or Marketing Campaign"
-              className="w-full text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              className="w-full text-xs font-medium border border-slate-200/80 dark:border-white/[0.08] rounded-xl px-3 py-2 bg-slate-50 dark:bg-[#171A1F] text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 placeholder:text-slate-400"
               required
               autoFocus
             />
@@ -110,26 +126,26 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
 
           {/* Description */}
           <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">Description (Optional)</label>
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Description (Optional)</label>
             <textarea
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief overview of project goals, team mission, or milestone deliverables..."
-              className="w-full text-xs text-slate-800 border border-slate-200 rounded-xl p-3 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              className="w-full text-xs text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] bg-slate-50 dark:bg-[#171A1F] rounded-xl p-3 focus:outline-none focus:border-indigo-500 placeholder:text-slate-400"
             />
           </div>
 
           {/* Color theme presets */}
           <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1.5">Project Color</label>
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">Project Color</label>
             <div className="flex items-center gap-2">
               {COLOR_PRESETS.map((preset) => (
                 <button
                   type="button"
                   key={preset}
                   onClick={() => setColor(preset)}
-                  className="w-7 h-7 rounded-full transition-transform flex items-center justify-center cursor-pointer hover:scale-110"
+                  className="w-7 h-7 rounded-full transition-transform flex items-center justify-center cursor-pointer hover:scale-110 ring-2 ring-transparent hover:ring-slate-300 dark:hover:ring-slate-600"
                   style={{ backgroundColor: preset }}
                 >
                   {color === preset && <Check className="w-3.5 h-3.5 text-white" />}
@@ -141,11 +157,11 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
           {/* Priority & Dates */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-semibold text-slate-600 block mb-1">Priority</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Priority</label>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
-                className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-800"
+                className="w-full text-xs border border-slate-200/80 dark:border-white/[0.08] rounded-xl px-3 py-2 bg-slate-50 dark:bg-[#171A1F] text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500"
               >
                 <option value="Low">Low</option>
                 <option value="Medium">Medium</option>
@@ -155,22 +171,22 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600 block mb-1">Start Date</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Start Date</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-800"
+                className="w-full text-xs border border-slate-200/80 dark:border-white/[0.08] rounded-xl px-3 py-2 bg-slate-50 dark:bg-[#171A1F] text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500"
               />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600 block mb-1">Due Date</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Due Date</label>
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-800"
+                className="w-full text-xs border border-slate-200/80 dark:border-white/[0.08] rounded-xl px-3 py-2 bg-slate-50 dark:bg-[#171A1F] text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500"
               />
             </div>
           </div>
@@ -178,32 +194,32 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
           {/* Team Members */}
           {allUsers.length > 0 && (
             <div>
-              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
                 Add Team Members ({selectedUserIds.length} selected)
               </label>
-              <div className="max-h-32 overflow-y-auto space-y-1.5 border border-slate-100 rounded-xl p-2 bg-slate-50/50">
+              <div className="max-h-36 overflow-y-auto space-y-1.5 border border-slate-200/80 dark:border-white/[0.08] rounded-xl p-2 bg-slate-50/50 dark:bg-[#171A1F]">
                 {allUsers.map((u) => {
                   const isChecked = selectedUserIds.includes(u.id);
                   return (
                     <div
                       key={u.id}
                       onClick={() => toggleUser(u.id)}
-                      className="p-1.5 rounded-lg flex items-center justify-between hover:bg-white cursor-pointer transition-colors"
+                      className="p-1.5 rounded-lg flex items-center justify-between hover:bg-white dark:hover:bg-[#1F242C] cursor-pointer transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <img
                           src={u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}`}
                           alt=""
-                          className="w-6 h-6 rounded-full object-cover"
+                          className="w-6 h-6 rounded-full object-cover ring-1 ring-slate-200 dark:ring-white/[0.1]"
                         />
-                        <span className="text-xs font-medium text-slate-800">{u.name}</span>
-                        <span className="text-[11px] text-slate-400">({u.email})</span>
+                        <span className="text-xs font-medium text-slate-800 dark:text-slate-200">{u.name}</span>
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500">({u.email})</span>
                       </div>
                       <input
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => {}}
-                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                        className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                       />
                     </div>
                   );
@@ -213,22 +229,24 @@ const NewProjectModal = ({ isOpen, onClose, onProjectCreated }) => {
           )}
 
           {/* Footer */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-            <button
+          <div className="pt-3 border-t border-slate-100 dark:border-white/[0.08] flex items-center justify-end gap-2">
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              disabled={submitting || !name.trim()}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              variant="primary"
+              size="sm"
+              isLoading={submitting}
+              disabled={!name.trim()}
             >
-              {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-              <span>Create Project</span>
-            </button>
+              Create Project
+            </Button>
           </div>
         </form>
       </div>

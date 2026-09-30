@@ -9,18 +9,14 @@ import {
   CheckCircle2, 
   Calendar,
   MessageSquare,
-  Paperclip
+  Paperclip,
+  ChevronRight
 } from 'lucide-react';
 import api from '../services/api';
 import TaskModal from '../components/modals/TaskModal';
+import Badge from '../components/common/Badge';
+import { TableRowSkeleton } from '../components/common/Skeleton';
 import { format } from 'date-fns';
-
-const PRIORITY_BADGES = {
-  Low: 'bg-slate-100 text-slate-600',
-  Medium: 'bg-blue-50 text-blue-600',
-  High: 'bg-amber-50 text-amber-700 font-semibold',
-  Urgent: 'bg-rose-50 text-rose-700 font-bold',
-};
 
 const TasksOverview = () => {
   const [tasks, setTasks] = useState([]);
@@ -63,19 +59,19 @@ const TasksOverview = () => {
     <div className="space-y-6 animate-in fade-in duration-200">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80 dark:border-white/[0.08]">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
-            <CheckSquare className="w-6 h-6 text-indigo-600" />
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
+            <CheckSquare className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
             <span>Assigned Tasks</span>
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            All tasks currently assigned to you across all project boards.
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+            All tasks currently assigned to you across all project workspaces.
           </p>
         </div>
 
         {/* Quick Filter tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-white border border-slate-200 rounded-xl shadow-2xs overflow-x-auto">
+        <div className="flex items-center gap-1 p-1 bg-white dark:bg-[#111418] border border-slate-200/80 dark:border-white/[0.08] rounded-xl shadow-xs overflow-x-auto">
           {[
             { id: 'all', label: 'All' },
             { id: 'due_today', label: 'Due Today' },
@@ -87,8 +83,8 @@ const TasksOverview = () => {
               onClick={() => setFilter(item.id)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 filter === item.id
-                  ? 'bg-indigo-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:bg-slate-100'
+                  ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-2xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04]'
               }`}
             >
               {item.label}
@@ -98,23 +94,24 @@ const TasksOverview = () => {
       </div>
 
       {/* Search & Priority Controls */}
-      <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#111418] p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-xs">
         <div className="relative flex-1 max-w-sm">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by title or project name..."
-            className="w-full pl-9 pr-3 py-1.5 text-xs font-medium border border-slate-200 rounded-xl focus:outline-hidden"
+            placeholder="Search by task title or project..."
+            className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-slate-50 dark:bg-[#171A1F] text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] rounded-xl focus:outline-none focus:border-indigo-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
           />
         </div>
 
         <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">Priority:</span>
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            className="text-xs font-medium border border-slate-200 rounded-xl px-2.5 py-1.5 bg-white text-slate-700"
+            className="text-xs font-semibold border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#171A1F] text-slate-700 dark:text-slate-300 rounded-xl px-2.5 py-1.5 focus:outline-none cursor-pointer"
           >
             <option value="All">All Priorities</option>
             <option value="Low">Low</option>
@@ -125,69 +122,94 @@ const TasksOverview = () => {
         </div>
       </div>
 
-      {/* Task List */}
-      {loading ? (
-        <div className="py-20 text-center text-xs text-slate-400">Loading your tasks...</div>
-      ) : filteredTasks.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-2">
-          <CheckCircle2 className="w-10 h-10 text-slate-300 mx-auto" />
-          <p className="text-sm font-semibold text-slate-800">No tasks found</p>
-          <p className="text-xs text-slate-400">You're all caught up for this filter criteria!</p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs divide-y divide-slate-100 overflow-hidden">
-          {filteredTasks.map((task) => {
-            const isOverdue = task.due_date && task.due_date.split('T')[0] < new Date().toISOString().split('T')[0] && task.status !== 'DONE';
+      {/* Tasks Table */}
+      <div className="bg-white dark:bg-[#111418] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-xs overflow-hidden">
+        {loading ? (
+          <div className="p-4 space-y-2">
+            <TableRowSkeleton />
+            <TableRowSkeleton />
+            <TableRowSkeleton />
+            <TableRowSkeleton />
+          </div>
+        ) : filteredTasks.length === 0 ? (
+          <div className="py-20 text-center space-y-2 p-6">
+            <CheckCircle2 className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
+            <p className="text-base font-bold text-slate-800 dark:text-slate-200">No tasks in this view</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+              You do not have any tasks matching the current filter.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-600 dark:text-slate-400">
+              <thead className="bg-slate-50/80 dark:bg-[#171A1F]/50 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-white/[0.06]">
+                <tr>
+                  <th className="py-3 px-4">Task</th>
+                  <th className="py-3 px-4">Project</th>
+                  <th className="py-3 px-4">Priority</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Due Date</th>
+                  <th className="py-3 px-4 text-right">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-white/[0.06]">
+                {filteredTasks.map((task) => {
+                  const isOverdue = task.due_date && task.due_date.split('T')[0] < new Date().toISOString().split('T')[0] && task.status !== 'DONE';
 
-            return (
-              <div
-                key={task.id}
-                onClick={() => setSearchParams({ task: task.id })}
-                className="p-4 hover:bg-slate-50/80 transition-colors flex items-center justify-between gap-4 cursor-pointer group"
-              >
-                <div className="flex items-start gap-3.5 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 mt-0.5 shrink-0 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                    <CheckSquare className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: task.project_color || '#4F46E5' }}
-                      />
-                      <span className="text-[11px] font-semibold text-slate-500 truncate">
-                        {task.project_name}
-                      </span>
-                    </div>
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
-                      {task.title}
-                    </h4>
-                  </div>
-                </div>
+                  return (
+                    <tr
+                      key={task.id}
+                      onClick={() => setSearchParams({ task: task.id })}
+                      className="hover:bg-slate-50/70 dark:hover:bg-white/[0.02] cursor-pointer transition-colors group"
+                    >
+                      <td className="py-3.5 px-4 font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors max-w-sm truncate">
+                        {task.title}
+                      </td>
 
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-sm uppercase tracking-wider ${PRIORITY_BADGES[task.priority]}`}>
-                    {task.priority}
-                  </span>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2">
+                          <span 
+                            className="w-2.5 h-2.5 rounded-full shrink-0" 
+                            style={{ backgroundColor: task.project_color || '#4F46E5' }} 
+                          />
+                          <span className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[140px]">
+                            {task.project_name || 'Project'}
+                          </span>
+                        </div>
+                      </td>
 
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                    {task.status}
-                  </span>
+                      <td className="py-3.5 px-4">
+                        <Badge priority={task.priority} dot size="xs" />
+                      </td>
 
-                  {task.due_date && (
-                    <div className={`flex items-center gap-1 text-xs ${isOverdue ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>{format(new Date(task.due_date), 'MMM d')}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+                      <td className="py-3.5 px-4">
+                        <Badge status={task.status} size="xs" />
+                      </td>
 
-      {/* Task Modal */}
+                      <td className="py-3.5 px-4">
+                        {task.due_date ? (
+                          <div className={`flex items-center gap-1 ${isOverdue ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-slate-500 dark:text-slate-400'}`}>
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>{format(new Date(task.due_date), 'MMM d, yyyy')}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-600">—</span>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right">
+                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-600 dark:group-hover:text-slate-300 ml-auto transition-colors" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Task Details Drawer */}
       {selectedTaskId && (
         <TaskModal
           taskId={selectedTaskId}

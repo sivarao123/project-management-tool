@@ -175,31 +175,47 @@ exports.updatePassword = async (req, res) => {
 
 // Forgot password
 exports.forgotPassword = async (req, res) => {
-  const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ success: false, message: 'Email is required.' });
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required.' });
+    }
+    const user = await db.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email.trim()]);
+    if (user.rows.length === 0) {
+      // Return friendly message even if email not found for privacy
+      return res.json({ success: true, message: 'If that email exists, reset instructions have been simulated.' });
+    }
+    return res.json({
+      success: true,
+      message: 'Password reset code simulated. In dev mode, use reset password or login with demo credentials.',
+      resetToken: 'demo-reset-token-' + Date.now()
+    });
+  } catch (err) {
+    console.error('forgotPassword error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to process password reset request.' });
   }
-  const user = await db.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email.trim()]);
-  if (user.rows.length === 0) {
-    // Return friendly message even if email not found for privacy
-    return res.json({ success: true, message: 'If that email exists, reset instructions have been simulated.' });
-  }
-  return res.json({
-    success: true,
-    message: 'Password reset code simulated. In dev mode, use reset password or login with demo credentials.',
-    resetToken: 'demo-reset-token-' + Date.now()
-  });
 };
 
 // Reset password
 exports.resetPassword = async (req, res) => {
-  const { email, newPassword } = req.body;
-  if (!email || !newPassword) {
-    return res.status(400).json({ success: false, message: 'Email and new password are required.' });
+  try {
+    const { email, newPassword } = req.body;
+    if (!email || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Email and new password are required.' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
+    }
+    const newHash = await bcrypt.hash(newPassword, 10);
+    const updateRes = await db.query('UPDATE users SET password_hash = $1 WHERE LOWER(email) = LOWER($2) RETURNING id', [newHash, email.trim()]);
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'No account found with this email address.' });
+    }
+    return res.json({ success: true, message: 'Password has been reset. You may now log in.' });
+  } catch (err) {
+    console.error('resetPassword error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to reset password.' });
   }
-  const newHash = await bcrypt.hash(newPassword, 10);
-  await db.query('UPDATE users SET password_hash = $1 WHERE LOWER(email) = LOWER($2)', [newHash, email.trim()]);
-  return res.json({ success: true, message: 'Password has been reset. You may now log in.' });
 };
 
 // Logout

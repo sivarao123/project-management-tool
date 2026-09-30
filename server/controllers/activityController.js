@@ -1,5 +1,15 @@
 const db = require('../config/db');
 
+function safeParseMetadata(metadata) {
+  if (!metadata) return {};
+  if (typeof metadata === 'object') return metadata;
+  try {
+    return JSON.parse(metadata);
+  } catch (err) {
+    return { raw: metadata };
+  }
+}
+
 // Get activity logs for a specific project
 exports.getProjectActivities = async (req, res) => {
   try {
@@ -17,7 +27,7 @@ exports.getProjectActivities = async (req, res) => {
 
     const activities = result.rows.map(a => ({
       ...a,
-      metadata: typeof a.metadata === 'string' ? JSON.parse(a.metadata || '{}') : a.metadata
+      metadata: safeParseMetadata(a.metadata)
     }));
 
     return res.json({ success: true, activities });
@@ -51,7 +61,7 @@ exports.getGlobalActivities = async (req, res) => {
 
     const activities = result.rows.map(a => ({
       ...a,
-      metadata: typeof a.metadata === 'string' ? JSON.parse(a.metadata || '{}') : a.metadata
+      metadata: safeParseMetadata(a.metadata)
     }));
 
     return res.json({ success: true, activities });

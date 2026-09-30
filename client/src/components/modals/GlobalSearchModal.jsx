@@ -1,27 +1,147 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, FolderKanban, CheckSquare, Users, MessageSquare, Loader2, ArrowRight } from 'lucide-react';
+import { 
+  Search, 
+  X, 
+  FolderKanban, 
+  CheckSquare, 
+  Users, 
+  Calendar, 
+  Settings, 
+  LayoutDashboard, 
+  Plus, 
+  Sun, 
+  Moon, 
+  ArrowRight, 
+  CornerDownLeft, 
+  Loader2 
+} from 'lucide-react';
 import api from '../../services/api';
+import { useTheme } from '../../context/ThemeContext';
 
-const GlobalSearchModal = ({ isOpen, onClose }) => {
+const GlobalSearchModal = ({ isOpen, onClose, onOpenNewTask, onOpenNewProject }) => {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState({ projects: [], tasks: [], members: [], comments: [] });
+  const [results, setResults] = useState({ projects: [], tasks: [], members: [] });
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
   const inputRef = useRef(null);
   const navigate = useNavigate();
+  const { isDark, toggleTheme } = useTheme();
 
+  // Preset quick commands
+  const defaultCommands = [
+    {
+      id: 'cmd-new-task',
+      title: 'Create new task',
+      category: 'Actions',
+      shortcut: '⌘T',
+      icon: Plus,
+      action: () => {
+        onClose();
+        onOpenNewTask?.();
+      }
+    },
+    {
+      id: 'cmd-new-project',
+      title: 'Create new project',
+      category: 'Actions',
+      shortcut: '⌘P',
+      icon: FolderKanban,
+      action: () => {
+        onClose();
+        onOpenNewProject?.();
+      }
+    },
+    {
+      id: 'cmd-theme',
+      title: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+      category: 'Preferences',
+      shortcut: '⌘D',
+      icon: isDark ? Sun : Moon,
+      action: () => {
+        toggleTheme();
+        onClose();
+      }
+    },
+    {
+      id: 'nav-dashboard',
+      title: 'Go to Dashboard',
+      category: 'Navigation',
+      icon: LayoutDashboard,
+      action: () => {
+        navigate('/');
+        onClose();
+      }
+    },
+    {
+      id: 'nav-projects',
+      title: 'Go to Projects',
+      category: 'Navigation',
+      icon: FolderKanban,
+      action: () => {
+        navigate('/projects');
+        onClose();
+      }
+    },
+    {
+      id: 'nav-tasks',
+      title: 'Go to Tasks Overview',
+      category: 'Navigation',
+      icon: CheckSquare,
+      action: () => {
+        navigate('/tasks');
+        onClose();
+      }
+    },
+    {
+      id: 'nav-calendar',
+      title: 'Go to Calendar',
+      category: 'Navigation',
+      icon: Calendar,
+      action: () => {
+        navigate('/calendar');
+        onClose();
+      }
+    },
+    {
+      id: 'nav-team',
+      title: 'Go to Team Directory',
+      category: 'Navigation',
+      icon: Users,
+      action: () => {
+        navigate('/team');
+        onClose();
+      }
+    },
+    {
+      id: 'nav-settings',
+      title: 'Go to Settings',
+      category: 'Navigation',
+      icon: Settings,
+      action: () => {
+        navigate('/settings');
+        onClose();
+      }
+    }
+  ];
+
+  // Reset state on open/close
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setTimeout(() => inputRef.current?.focus(), 60);
+      setSelectedIndex(0);
     } else {
       setQuery('');
-      setResults({ projects: [], tasks: [], members: [], comments: [] });
+      setResults({ projects: [], tasks: [], members: [] });
     }
   }, [isOpen]);
 
+  // Debounced API search when typing
   useEffect(() => {
     if (!query.trim()) {
-      setResults({ projects: [], tasks: [], members: [], comments: [] });
+      setResults({ projects: [], tasks: [], members: [] });
+      setSelectedIndex(0);
       return;
     }
 
@@ -30,209 +150,221 @@ const GlobalSearchModal = ({ isOpen, onClose }) => {
       try {
         const res = await api.get(`/search?q=${encodeURIComponent(query)}`);
         if (res.results) {
-          setResults(res.results);
+          setResults({
+            projects: res.results.projects || [],
+            tasks: res.results.tasks || [],
+            members: res.results.members || []
+          });
+          setSelectedIndex(0);
         }
       } catch (err) {
-        console.error('Search error:', err);
+        console.error('Command palette search error:', err);
       } finally {
         setLoading(false);
       }
-    }, 250);
+    }, 200);
 
     return () => clearTimeout(timer);
   }, [query]);
 
+  // Build flattened selectable list
+  const activeItems = [];
+
+  if (!query.trim()) {
+    // Show default quick commands
+    activeItems.push(...defaultCommands);
+  } else {
+    // Show matching commands first
+    const matchedCommands = defaultCommands.filter(c =>
+      c.title.toLowerCase().includes(query.toLowerCase())
+    );
+    activeItems.push(...matchedCommands);
+
+    // Show matching projects
+    results.projects.forEach(p => {
+      activeItems.push({
+        id: `proj-${p.id}`,
+        title: p.name,
+        subtitle: p.description || 'Project workspace',
+        category: 'Projects',
+        icon: FolderKanban,
+        badge: p.status,
+        color: p.color,
+        action: () => {
+          navigate(`/projects/${p.id}`);
+          onClose();
+        }
+      });
+    });
+
+    // Show matching tasks
+    results.tasks.forEach(t => {
+      activeItems.push({
+        id: `task-${t.id}`,
+        title: t.title,
+        subtitle: `${t.project_name || 'Project'} • ${t.status}`,
+        category: 'Tasks',
+        icon: CheckSquare,
+        priority: t.priority,
+        action: () => {
+          navigate(`/projects/${t.project_id}?task=${t.id}`);
+          onClose();
+        }
+      });
+    });
+
+    // Show matching members
+    results.members.forEach(m => {
+      activeItems.push({
+        id: `member-${m.id}`,
+        title: m.name,
+        subtitle: m.email,
+        category: 'People',
+        icon: Users,
+        badge: m.role,
+        action: () => {
+          navigate('/team');
+          onClose();
+        }
+      });
+    });
+  }
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex(prev => (prev < activeItems.length - 1 ? prev + 1 : 0));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex(prev => (prev > 0 ? prev - 1 : activeItems.length - 1));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeItems[selectedIndex]) {
+          activeItems[selectedIndex].action();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, activeItems, selectedIndex, onClose]);
+
   if (!isOpen) return null;
 
-  const totalResults = results.projects.length + results.tasks.length + results.members.length + results.comments.length;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]">
+    <div 
+      className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full max-w-2xl bg-white dark:bg-[#111418] rounded-2xl shadow-2xl dark:shadow-dark-elevated border border-slate-200/90 dark:border-white/[0.08] overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-150">
+        
         {/* Search Input Bar */}
-        <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
-          <Search className="w-5 h-5 text-slate-400 shrink-0" />
+        <div className="p-3.5 sm:p-4 border-b border-slate-100 dark:border-white/[0.06] flex items-center gap-3 bg-slate-50/50 dark:bg-[#171A1F]/50">
+          <Search className="w-5 h-5 text-slate-400 dark:text-slate-500 shrink-0" />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search projects, tasks, members, or comments..."
-            className="w-full bg-transparent text-slate-900 text-sm focus:outline-hidden placeholder:text-slate-400"
+            placeholder="Type a command or search anything..."
+            className="w-full bg-transparent text-slate-900 dark:text-white text-sm focus:outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
           />
-          {loading && <Loader2 className="w-4 h-4 text-indigo-600 animate-spin shrink-0" />}
+          {loading && <Loader2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 animate-spin shrink-0" />}
           {query && (
-            <button onClick={() => setQuery('')} className="text-slate-400 hover:text-slate-600 p-1">
+            <button 
+              onClick={() => setQuery('')} 
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-md"
+            >
               <X className="w-4 h-4" />
             </button>
           )}
-          <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded">
+          <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 dark:text-slate-500 bg-white dark:bg-[#171A1F] border border-slate-200 dark:border-white/[0.08] rounded">
             ESC
           </kbd>
         </div>
 
-        {/* Results Body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-5">
-          {!query.trim() && (
-            <div className="py-12 text-center text-slate-400 text-xs">
-              <p className="font-medium text-slate-500">Quick Global Search</p>
-              <p className="mt-1">Type keywords to search across projects, task titles, team members, and discussion threads.</p>
+        {/* List of items */}
+        <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1">
+          {activeItems.length === 0 && !loading && (
+            <div className="py-12 text-center text-xs text-slate-400 dark:text-slate-500">
+              <p className="font-semibold text-slate-600 dark:text-slate-300">No results found for "{query}"</p>
+              <p className="mt-1">Try another keyword or shortcut.</p>
             </div>
           )}
 
-          {query.trim() && !loading && totalResults === 0 && (
-            <div className="py-12 text-center text-slate-400 text-xs">
-              <p className="font-medium text-slate-600">No results found for "{query}"</p>
-              <p className="mt-1">Try adjusting your spelling or search terms.</p>
-            </div>
-          )}
+          {activeItems.map((item, idx) => {
+            const Icon = item.icon;
+            const isSelected = selectedIndex === idx;
 
-          {/* Projects Results */}
-          {results.projects.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                <FolderKanban className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Projects ({results.projects.length})</span>
-              </div>
-              <div className="space-y-1">
-                {results.projects.map((proj) => (
-                  <div
-                    key={proj.id}
-                    onClick={() => {
-                      onClose();
-                      navigate(`/projects/${proj.id}`);
-                    }}
-                    className="p-2.5 rounded-lg hover:bg-slate-50 flex items-center justify-between cursor-pointer group transition-colors"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: proj.color || '#4F46E5' }} />
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
-                          {proj.name}
-                        </p>
-                        <p className="text-[11px] text-slate-400 truncate">{proj.description || 'No description'}</p>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
+            return (
+              <div
+                key={item.id}
+                onClick={item.action}
+                onMouseEnter={() => setSelectedIndex(idx)}
+                className={`
+                  flex items-center justify-between px-3 py-2.5 rounded-xl text-xs sm:text-sm cursor-pointer transition-all
+                  ${isSelected
+                    ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 font-medium'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04]'}
+                `}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
+                    isSelected 
+                      ? 'bg-indigo-100 dark:bg-indigo-900/50 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300' 
+                      : 'bg-slate-100 dark:bg-[#1F242C] border-slate-200/60 dark:border-white/[0.06] text-slate-500 dark:text-slate-400'
+                  }`}>
+                    {item.color ? (
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                    ) : (
+                      <Icon className="w-4 h-4" />
+                    )}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Tasks Results */}
-          {results.tasks.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                <CheckSquare className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Tasks ({results.tasks.length})</span>
-              </div>
-              <div className="space-y-1">
-                {results.tasks.map((task) => (
-                  <div
-                    key={task.id}
-                    onClick={() => {
-                      onClose();
-                      navigate(`/projects/${task.project_id}?task=${task.id}`);
-                    }}
-                    className="p-2.5 rounded-lg hover:bg-slate-50 flex items-center justify-between cursor-pointer group transition-colors"
-                  >
-                    <div className="min-w-0 pr-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
-                          {task.title}
-                        </span>
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                          {task.status}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                        In <span className="font-medium text-slate-600">{task.project_name}</span>
-                        {task.assignee_name && ` • Assigned to ${task.assignee_name}`}
-                      </p>
-                    </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{item.title}</p>
+                    {item.subtitle && (
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{item.subtitle}</p>
+                    )}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
 
-          {/* Members Results */}
-          {results.members.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                <Users className="w-3.5 h-3.5 text-sky-500" />
-                <span>Team Members ({results.members.length})</span>
-              </div>
-              <div className="space-y-1">
-                {results.members.map((member) => (
-                  <div
-                    key={member.id}
-                    onClick={() => {
-                      onClose();
-                      navigate('/team');
-                    }}
-                    className="p-2.5 rounded-lg hover:bg-slate-50 flex items-center justify-between cursor-pointer group transition-colors"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <img
-                        src={member.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}`}
-                        alt=""
-                        className="w-7 h-7 rounded-full object-cover ring-1 ring-slate-200 shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
-                          {member.name}
-                        </p>
-                        <p className="text-[11px] text-slate-400 truncate">{member.email}</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-medium px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">
-                      {member.role || 'Member'}
+                <div className="flex items-center gap-2 shrink-0">
+                  {item.badge && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-[#1F242C] text-slate-600 dark:text-slate-400">
+                      {item.badge}
                     </span>
-                  </div>
-                ))}
+                  )}
+                  {item.shortcut ? (
+                    <kbd className="px-1.5 py-0.5 text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-white dark:bg-[#171A1F] border border-slate-200 dark:border-white/[0.08] rounded shadow-2xs">
+                      {item.shortcut}
+                    </kbd>
+                  ) : isSelected ? (
+                    <CornerDownLeft className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                  ) : null}
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* Comments Results */}
-          {results.comments.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                <MessageSquare className="w-3.5 h-3.5 text-amber-500" />
-                <span>Discussions ({results.comments.length})</span>
-              </div>
-              <div className="space-y-1">
-                {results.comments.map((comm) => (
-                  <div
-                    key={comm.id}
-                    onClick={() => {
-                      onClose();
-                      navigate(`/projects/${comm.project_id}?task=${comm.task_id}`);
-                    }}
-                    className="p-2.5 rounded-lg hover:bg-slate-50 cursor-pointer group transition-colors"
-                  >
-                    <p className="text-xs text-slate-700 line-clamp-1 italic">
-                      "{comm.content}"
-                    </p>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      By <span className="font-semibold text-slate-600">{comm.author_name}</span> on task{' '}
-                      <span className="font-semibold text-indigo-600">{comm.task_title}</span>
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            );
+          })}
         </div>
 
-        {/* Footer */}
-        <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-          <span>Navigate with mouse or arrow keys</span>
-          <span>Press ESC to close</span>
+        {/* Command Palette Footer */}
+        <div className="px-4 py-2 border-t border-slate-100 dark:border-white/[0.06] bg-slate-50/70 dark:bg-[#171A1F]/40 flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500">
+          <div className="flex items-center gap-3">
+            <span><kbd className="font-semibold text-slate-500 dark:text-slate-400">↑↓</kbd> Navigate</span>
+            <span><kbd className="font-semibold text-slate-500 dark:text-slate-400">↵</kbd> Select</span>
+            <span><kbd className="font-semibold text-slate-500 dark:text-slate-400">ESC</kbd> Close</span>
+          </div>
+          <span>TaskFlow Command Palette</span>
         </div>
+
       </div>
     </div>
   );

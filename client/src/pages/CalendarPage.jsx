@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { 
   Calendar as CalendarIcon, 
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import TaskModal from '../components/modals/TaskModal';
+import Button from '../components/common/Button';
 import { 
   format, 
   startOfMonth, 
@@ -34,25 +35,25 @@ const CalendarPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTaskId = searchParams.get('task');
 
-  useEffect(() => {
-    const loadCalendarData = async () => {
-      try {
-        setLoading(true);
-        const [projRes, taskRes] = await Promise.all([
-          api.get('/projects'),
-          api.get('/tasks/my-tasks')
-        ]);
-        if (projRes.projects) setProjects(projRes.projects);
-        if (taskRes.tasks) setTasks(taskRes.tasks);
-      } catch (err) {
-        console.error('Calendar load error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadCalendarData();
+  const loadCalendarData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [projRes, taskRes] = await Promise.all([
+        api.get('/projects'),
+        api.get('/tasks/my-tasks')
+      ]);
+      if (projRes.projects) setProjects(projRes.projects);
+      if (taskRes.tasks) setTasks(taskRes.tasks);
+    } catch (err) {
+      console.error('Calendar load error:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadCalendarData();
+  }, [loadCalendarData]);
 
   // Compute days in month
   const monthStart = startOfMonth(currentDate);
@@ -71,47 +72,52 @@ const CalendarPage = () => {
     <div className="space-y-6 animate-in fade-in duration-200">
       
       {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80 dark:border-white/[0.08]">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
-            <CalendarIcon className="w-6 h-6 text-indigo-600" />
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
+            <CalendarIcon className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
             <span>Task Calendar</span>
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Track upcoming task milestones and deadlines visually.
           </p>
         </div>
 
         {/* Navigation month controls */}
-        <div className="flex items-center gap-3 bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-xs">
-          <button
-            onClick={() => setCurrentDate(subMonths(currentDate, 1))}
-            className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-600 transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="text-xs font-bold text-slate-800 min-w-[120px] text-center">
-            {format(currentDate, 'MMMM yyyy')}
-          </span>
-          <button
-            onClick={() => setCurrentDate(addMonths(currentDate, 1))}
-            className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-600 transition-colors"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-          <button
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="xs"
             onClick={() => setCurrentDate(new Date())}
-            className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-xl transition-colors"
           >
             Today
-          </button>
+          </Button>
+
+          <div className="flex items-center gap-2 bg-white dark:bg-[#111418] p-1 rounded-xl border border-slate-200/80 dark:border-white/[0.08] shadow-xs">
+            <button
+              onClick={() => setCurrentDate(subMonths(currentDate, 1))}
+              className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/[0.06] rounded-lg text-slate-600 dark:text-slate-400 transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 min-w-[130px] text-center">
+              {format(currentDate, 'MMMM yyyy')}
+            </span>
+            <button
+              onClick={() => setCurrentDate(addMonths(currentDate, 1))}
+              className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/[0.06] rounded-lg text-slate-600 dark:text-slate-400 transition-colors cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Calendar Grid */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        {/* Days of week header */}
-        <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+      {/* Calendar Grid Container */}
+      <div className="bg-white dark:bg-[#111418] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-xs overflow-hidden">
+        
+        {/* Day Header Row */}
+        <div className="grid grid-cols-7 border-b border-slate-100 dark:border-white/[0.06] bg-slate-50/80 dark:bg-[#171A1F]/50 text-center py-2.5 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
           <span>Sun</span>
           <span>Mon</span>
           <span>Tue</span>
@@ -121,55 +127,57 @@ const CalendarPage = () => {
           <span>Sat</span>
         </div>
 
-        {/* Days grid */}
-        <div className="grid grid-cols-7 divide-x divide-y divide-slate-100 min-h-[550px]">
+        {/* Month Day Cells */}
+        <div className="grid grid-cols-7 divide-x divide-y divide-slate-100 dark:divide-white/[0.06]">
           {calendarDays.map((day) => {
-            const isCurrentMonth = isSameMonth(day, monthStart);
-            const isTodayDay = isToday(day);
             const dayTasks = getDayTasks(day);
+            const inCurrentMonth = isSameMonth(day, currentDate);
+            const today = isToday(day);
 
             return (
               <div
                 key={day.toISOString()}
-                className={`p-2 min-h-[110px] flex flex-col transition-colors ${
-                  isCurrentMonth ? 'bg-white' : 'bg-slate-50/40 text-slate-300'
-                }`}
+                className={`min-h-[110px] sm:min-h-[130px] p-2 transition-colors flex flex-col justify-between ${
+                  !inCurrentMonth 
+                    ? 'bg-slate-50/40 dark:bg-white/[0.01] text-slate-300 dark:text-slate-600' 
+                    : 'text-slate-800 dark:text-slate-200 hover:bg-slate-50/50 dark:hover:bg-white/[0.02]'
+                } ${today ? 'bg-indigo-50/20 dark:bg-indigo-950/10' : ''}`}
               >
-                {/* Day number header */}
-                <div className="flex items-center justify-between mb-1.5">
+                {/* Day number */}
+                <div className="flex items-center justify-between">
                   <span
-                    className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold ${
-                      isTodayDay
-                        ? 'bg-indigo-600 text-white'
-                        : isCurrentMonth
-                        ? 'text-slate-800'
-                        : 'text-slate-300'
+                    className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${
+                      today
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : inCurrentMonth
+                        ? 'text-slate-700 dark:text-slate-300'
+                        : 'text-slate-300 dark:text-slate-600'
                     }`}
                   >
                     {format(day, 'd')}
                   </span>
+
                   {dayTasks.length > 0 && (
-                    <span className="text-[10px] font-bold text-slate-400">
-                      {dayTasks.length} {dayTasks.length === 1 ? 'task' : 'tasks'}
+                    <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+                      {dayTasks.length} task{dayTasks.length > 1 ? 's' : ''}
                     </span>
                   )}
                 </div>
 
-                {/* Day Task Badges */}
-                <div className="flex-1 space-y-1 overflow-y-auto">
-                  {dayTasks.map((task) => (
+                {/* Day Tasks List */}
+                <div className="mt-1.5 space-y-1 overflow-y-auto max-h-[75px]">
+                  {dayTasks.map((t) => (
                     <div
-                      key={task.id}
-                      onClick={() => setSearchParams({ task: task.id })}
-                      className="p-1.5 rounded-lg border text-[11px] font-medium bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 cursor-pointer truncate transition-colors group flex items-center gap-1.5"
-                      title={`${task.title} (${task.status})`}
+                      key={t.id}
+                      onClick={() => setSearchParams({ task: t.id })}
+                      className="px-2 py-1 rounded-md bg-white dark:bg-[#171A1F] border border-slate-200/80 dark:border-white/[0.08] hover:border-indigo-400 dark:hover:border-indigo-500 shadow-2xs text-[10px] font-medium text-slate-800 dark:text-slate-200 truncate cursor-pointer transition-all flex items-center gap-1.5 group"
                     >
-                      <span
-                        className="w-2 h-2 rounded-full shrink-0"
-                        style={{ backgroundColor: task.project_color || '#4F46E5' }}
+                      <span 
+                        className="w-1.5 h-1.5 rounded-full shrink-0" 
+                        style={{ backgroundColor: t.project_color || '#4F46E5' }} 
                       />
-                      <span className="truncate group-hover:text-indigo-600 text-slate-700">
-                        {task.title}
+                      <span className="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                        {t.title}
                       </span>
                     </div>
                   ))}
@@ -178,9 +186,10 @@ const CalendarPage = () => {
             );
           })}
         </div>
+
       </div>
 
-      {/* Task Modal */}
+      {/* Task Details Drawer */}
       {selectedTaskId && (
         <TaskModal
           taskId={selectedTaskId}
@@ -188,6 +197,8 @@ const CalendarPage = () => {
             searchParams.delete('task');
             setSearchParams(searchParams);
           }}
+          onTaskUpdated={() => loadCalendarData()}
+          onTaskDeleted={() => loadCalendarData()}
         />
       )}
 

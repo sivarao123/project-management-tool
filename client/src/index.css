@@ -3,8 +3,12 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color-scheme: light dark;
+  }
+
   body {
-    @apply bg-slate-50 text-slate-900 selection:bg-indigo-500 selection:text-white;
+    @apply bg-[#F9FAFB] text-slate-900 dark:bg-[#0B0D10] dark:text-[#F3F4F6] selection:bg-indigo-500 selection:text-white transition-colors duration-150 antialiased;
   }
 }
 
@@ -23,8 +27,16 @@
   border-radius: 9999px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: #272C35;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #3B4252;
 }
 
 /* Kanban column custom scroll */
@@ -34,11 +46,38 @@
 
 /* Drag and drop transition styling */
 .card-dragging {
-  opacity: 0.4;
+  opacity: 0.35;
   transform: scale(0.98);
 }
 
 .drop-target-active {
   background-color: rgba(99, 102, 241, 0.08);
   border-color: #6366f1;
+}
+
+.dark .drop-target-active {
+  background-color: rgba(99, 102, 241, 0.15);
+  border-color: #818cf8;
+}
+
+/* Pulse skeleton shimmer */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(226, 232, 240, 0.6) 25%, rgba(241, 245, 249, 0.9) 37%, rgba(226, 232, 240, 0.6) 63%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.dark .skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(31, 36, 44, 0.6) 25%, rgba(45, 52, 64, 0.9) 37%, rgba(31, 36, 44, 0.6) 63%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }

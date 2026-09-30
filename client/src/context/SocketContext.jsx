@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
@@ -56,17 +56,17 @@ export const SocketProvider = ({ children }) => {
     };
   }, [user?.id, token]);
 
-  const joinProject = (projectId) => {
+  const joinProject = useCallback((projectId) => {
     if (socket && projectId) {
       socket.emit('join:project', projectId);
     }
-  };
+  }, [socket]);
 
-  const leaveProject = (projectId) => {
+  const leaveProject = useCallback((projectId) => {
     if (socket && projectId) {
       socket.emit('leave:project', projectId);
     }
-  };
+  }, [socket]);
 
   const value = {
     socket,

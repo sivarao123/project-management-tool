@@ -31,7 +31,11 @@ api.interceptors.response.use(
         localStorage.removeItem('taskflow_user');
       }
     }
-    const message = error.response?.data?.message || error.message || 'An unexpected error occurred.';
+    const message = 
+      error.response?.data?.message || 
+      error.response?.data?.error || 
+      error.message || 
+      'An unexpected error occurred.';
     return Promise.reject(new Error(message));
   }
 );

@@ -29,6 +29,15 @@ export const NotificationProvider = ({ children }) => {
     fetchNotifications();
   }, [fetchNotifications]);
 
+  const showToast = useCallback(({ type = 'info', title, message, link, duration = 4000 }) => {
+    const toastId = 'toast-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+    const newToast = { id: toastId, type, title, message, link };
+    setActiveToast(newToast);
+    setTimeout(() => {
+      setActiveToast(prev => (prev?.id === toastId ? null : prev));
+    }, duration);
+  }, []);
+
   // Real-time notification listener
   useEffect(() => {
     if (!socket) return;
@@ -37,11 +46,12 @@ export const NotificationProvider = ({ children }) => {
       setNotifications(prev => [notif, ...prev]);
       setUnreadCount(prev => prev + 1);
 
-      // Show toast
-      setActiveToast(notif);
-      setTimeout(() => {
-        setActiveToast(prev => (prev?.id === notif.id ? null : prev));
-      }, 5000);
+      showToast({
+        type: 'notification',
+        title: notif.title,
+        message: notif.message,
+        link: notif.link
+      });
     };
 
     socket.on('notification:new', handleNewNotification);
@@ -49,7 +59,7 @@ export const NotificationProvider = ({ children }) => {
     return () => {
       socket.off('notification:new', handleNewNotification);
     };
-  }, [socket]);
+  }, [socket, showToast]);
 
   const markAsRead = async (id) => {
     try {
@@ -92,6 +102,7 @@ export const NotificationProvider = ({ children }) => {
     notifications,
     unreadCount,
     activeToast,
+    showToast,
     fetchNotifications,
     markAsRead,
     markAllAsRead,

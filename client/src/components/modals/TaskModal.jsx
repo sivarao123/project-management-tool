@@ -17,30 +17,34 @@ import {
   AlertCircle,
   CornerDownRight,
   Loader2,
-  Sparkles
+  Sparkles,
+  ChevronDown
 } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import { useNotifications } from '../../context/NotificationContext';
+import Badge from '../common/Badge';
+import Button from '../common/Button';
+import ConfirmDialog from '../common/ConfirmDialog';
 import { formatDistanceToNow, format } from 'date-fns';
 
-const PRIORITY_CONFIG = {
-  Low: { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' },
-  Medium: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-  High: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-  Urgent: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
-};
-
 const COLUMNS = ['BACKLOG', 'TODO', 'IN PROGRESS', 'IN REVIEW', 'DONE'];
+const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
 
 const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembers = [], projectLabels = [] }) => {
   const { user } = useAuth();
   const { socket } = useSocket();
+  const { showToast } = useNotifications();
 
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('comments'); // 'comments' | 'activity'
+
+  // Confirm delete dialog state
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Editable fields state
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -51,7 +55,7 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
 
   // Comment input
   const [commentText, setCommentText] = useState('');
-  const [replyingTo, setReplyingTo] = useState(null); // comment object or null
+  const [replyingTo, setReplyingTo] = useState(null);
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingCommentText, setEditingCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
@@ -59,6 +63,15 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
   // File upload
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Escape listener
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !isConfirmDeleteOpen) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, isConfirmDeleteOpen]);
 
   const fetchTaskDetails = async () => {
     try {
@@ -82,7 +95,7 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
     }
   }, [taskId]);
 
-  // Real-time socket events for this task
+  // Real-time socket events
   useEffect(() => {
     if (!socket || !taskId) return;
 
@@ -173,7 +186,7 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
         onTaskUpdated?.(res.task);
       }
     } catch (err) {
-      alert('Failed to update task: ' + err.message);
+      showToast({ type: 'error', title: 'Update Failed', message: err.message });
     }
   };
 
@@ -206,22 +219,27 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
           description: res.enhancedDescription,
           priority: res.suggestedPriority || task.priority
         });
+        showToast({ type: 'success', title: 'Task Enhanced', message: 'AI expanded description and subtasks.' });
       }
     } catch (err) {
-      alert(`AI enhancement failed: ${err.message}`);
+      showToast({ type: 'error', title: 'Enhancement Failed', message: err.message });
     } finally {
       setIsEnhancing(false);
     }
   };
 
-  const handleDeleteTask = async () => {
-    if (!window.confirm('Are you sure you want to permanently delete this task?')) return;
+  const handleConfirmDelete = async () => {
     try {
+      setIsDeleting(true);
       await api.delete(`/tasks/${taskId}`);
+      showToast({ type: 'success', title: 'Task Deleted', message: 'Task permanently removed.' });
       onTaskDeleted?.(taskId);
+      setIsConfirmDeleteOpen(false);
       onClose();
     } catch (err) {
-      alert('Failed to delete task: ' + err.message);
+      showToast({ type: 'error', title: 'Delete Failed', message: err.message });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -233,7 +251,7 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
       setSubmittingComment(true);
       const res = await api.post(`/tasks/${taskId}/comments`, {
         content: commentText.trim(),
-        parent_id: replyingTo?.id || null
+        parent_id: replyingTo ? replyingTo.id : null
       });
 
       if (res.comment) {
@@ -243,9 +261,10 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
         }));
         setCommentText('');
         setReplyingTo(null);
+        showToast({ type: 'success', title: 'Comment Posted', message: 'Your comment was added.' });
       }
     } catch (err) {
-      alert('Failed to post comment: ' + err.message);
+      showToast({ type: 'error', title: 'Comment Failed', message: 'Unable to post comment. Your text was preserved.' });
     } finally {
       setSubmittingComment(false);
     }
@@ -261,22 +280,23 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
           comments: prev.comments.map(c => (c.id === commentId ? { ...c, content: res.comment.content } : c))
         }));
         setEditingCommentId(null);
+        setEditingCommentText('');
       }
     } catch (err) {
-      alert('Failed to edit comment: ' + err.message);
+      showToast({ type: 'error', title: 'Update Failed', message: err.message });
     }
   };
 
   const handleDeleteComment = async (commentId) => {
-    if (!window.confirm('Delete this comment?')) return;
     try {
       await api.delete(`/comments/${commentId}`);
       setTask(prev => ({
         ...prev,
         comments: prev.comments.filter(c => c.id !== commentId)
       }));
+      showToast({ type: 'info', title: 'Comment Deleted', message: 'Comment removed.' });
     } catch (err) {
-      alert('Failed to delete comment: ' + err.message);
+      showToast({ type: 'error', title: 'Delete Failed', message: err.message });
     }
   };
 
@@ -297,9 +317,10 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
           ...prev,
           attachments: [res.attachment, ...(prev.attachments || [])]
         }));
+        showToast({ type: 'success', title: 'File Uploaded', message: res.attachment.file_name });
       }
     } catch (err) {
-      alert('Failed to upload file: ' + err.message);
+      showToast({ type: 'error', title: 'Upload Failed', message: err.message });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -307,15 +328,15 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
   };
 
   const handleDeleteAttachment = async (attachId) => {
-    if (!window.confirm('Remove this attachment?')) return;
     try {
       await api.delete(`/attachments/${attachId}`);
       setTask(prev => ({
         ...prev,
         attachments: prev.attachments.filter(a => a.id !== attachId)
       }));
+      showToast({ type: 'info', title: 'Attachment Removed', message: 'File deleted.' });
     } catch (err) {
-      alert('Failed to delete attachment: ' + err.message);
+      showToast({ type: 'error', title: 'Delete Failed', message: err.message });
     }
   };
 
@@ -330,10 +351,12 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs">
-        <div className="bg-white p-6 rounded-2xl shadow-xl flex items-center gap-3">
-          <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
-          <span className="text-sm font-medium text-slate-700">Loading task details...</span>
+      <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 dark:bg-black/60 backdrop-blur-2xs animate-in fade-in duration-150">
+        <div className="w-full sm:w-[560px] md:w-[640px] h-full bg-white dark:bg-[#111418] border-l border-slate-200 dark:border-white/[0.08] shadow-drawer p-8 flex items-center justify-center">
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400 animate-spin" />
+            <span className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">Loading task details...</span>
+          </div>
         </div>
       </div>
     );
@@ -341,17 +364,15 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
 
   if (error || !task) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-        <div className="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full text-center">
-          <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
-          <p className="text-sm font-semibold text-slate-800">Task Not Found</p>
-          <p className="text-xs text-slate-500 mt-1">{error || 'This task does not exist or was deleted.'}</p>
-          <button
-            onClick={onClose}
-            className="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
-          >
-            Close
-          </button>
+      <div 
+        className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 dark:bg-black/60 backdrop-blur-2xs animate-in fade-in duration-150"
+        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      >
+        <div className="w-full sm:w-[560px] md:w-[640px] h-full bg-white dark:bg-[#111418] border-l border-slate-200 dark:border-white/[0.08] shadow-drawer p-8 flex flex-col justify-center items-center text-center space-y-4">
+          <AlertCircle className="w-10 h-10 text-rose-500" />
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">Task Not Found</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{error || 'This task does not exist or was deleted.'}</p>
+          <Button variant="secondary" size="sm" onClick={onClose}>Close</Button>
         </div>
       </div>
     );
@@ -362,565 +383,445 @@ const TaskModal = ({ taskId, onClose, onTaskUpdated, onTaskDeleted, projectMembe
   const getReplies = (parentId) => task.comments?.filter(c => c.parent_id === parentId) || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto">
-      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-auto max-h-[92vh]">
-        
-        {/* Top Header Bar */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: task.project_color || '#4F46E5' }} />
-            <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">{task.project_name}</span>
-            <span className="text-slate-300">•</span>
-            <span className="text-xs font-medium text-slate-400">TASK-{task.id}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleDeleteTask}
-              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-              title="Delete task"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-              title="Close modal"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Modal Main Content (2 Columns on Desktop) */}
-        <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
+    <>
+      <div 
+        className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 dark:bg-black/60 backdrop-blur-2xs animate-in fade-in duration-200"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div className="w-full sm:w-[560px] md:w-[640px] h-full bg-white dark:bg-[#111418] border-l border-slate-200/90 dark:border-white/[0.08] shadow-drawer dark:shadow-dark-elevated flex flex-col animate-in slide-in-from-right duration-250">
           
-          {/* Left / Center: Details, Description, Attachments, Comments */}
-          <div className="lg:col-span-2 p-6 space-y-6">
+          {/* Top Header Bar */}
+          <div className="px-5 py-3.5 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between bg-slate-50/60 dark:bg-[#171A1F]/50">
+            <div className="flex items-center gap-2 truncate">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: task.project_color || '#4F46E5' }} />
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 truncate">{task.project_name}</span>
+              <span className="text-slate-300 dark:text-white/[0.15]">•</span>
+              <span className="text-xs font-mono font-medium text-slate-400 dark:text-slate-500">TASK-{task.id}</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => setIsConfirmDeleteOpen(true)}
+                className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors cursor-pointer"
+                title="Delete task"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onClose}
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06] rounded-lg transition-colors cursor-pointer"
+                title="Close drawer (ESC)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Scrollable Body */}
+          <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
             
-            {/* Task Title */}
-            <div>
+            {/* Title Section (Click to Edit) */}
+            <div className="space-y-1">
               {isEditingTitle ? (
-                <div className="flex items-center gap-2">
+                <div className="space-y-2">
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
+                    onBlur={handleSaveTitle}
                     onKeyDown={(e) => e.key === 'Enter' && handleSaveTitle()}
-                    className="w-full text-lg sm:text-xl font-bold text-slate-900 border border-indigo-300 rounded-lg px-3 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                     autoFocus
+                    className="w-full text-lg sm:text-xl font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-[#1F242C] px-3 py-2 rounded-xl border border-indigo-500 focus:outline-none"
                   />
-                  <button
-                    onClick={handleSaveTitle}
-                    className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                  >
-                    <Check className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setTitle(task.title);
-                      setIsEditingTitle(false);
-                    }}
-                    className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <Button size="xs" variant="primary" onClick={handleSaveTitle}>Save</Button>
+                    <Button size="xs" variant="secondary" onClick={() => { setTitle(task.title); setIsEditingTitle(false); }}>Cancel</Button>
+                  </div>
                 </div>
               ) : (
                 <h2 
                   onClick={() => setIsEditingTitle(true)}
-                  className="text-lg sm:text-xl font-bold text-slate-900 hover:text-indigo-600 cursor-pointer flex items-center justify-between group transition-colors"
+                  className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/[0.04] p-1.5 -ml-1.5 rounded-xl cursor-text transition-colors leading-snug"
                   title="Click to edit title"
                 >
-                  <span>{task.title}</span>
-                  <Edit3 className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0" />
+                  {task.title}
                 </h2>
               )}
             </div>
 
-            {/* Description */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                <div className="flex items-center gap-2">
-                  <span>Description</span>
-                  <button
-                    type="button"
-                    onClick={handleAIEnhance}
-                    disabled={isEnhancing}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
-                    title="Generate acceptance criteria and technical specifications"
-                  >
-                    <Sparkles className="w-3 h-3 text-indigo-600" />
-                    <span>{isEnhancing ? 'Enhancing...' : '✨ AI Enhance Specs'}</span>
-                  </button>
+            {/* Properties Grid */}
+            <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-slate-50/70 dark:bg-[#171A1F]/60 border border-slate-200/60 dark:border-white/[0.06] text-xs">
+              
+              {/* Status Selector */}
+              <div>
+                <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 block mb-1">Status</span>
+                <select
+                  value={task.status}
+                  onChange={(e) => handleUpdate({ status: e.target.value })}
+                  className="w-full bg-white dark:bg-[#1F242C] text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] rounded-xl px-2.5 py-1.5 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  {COLUMNS.map(col => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Priority Selector */}
+              <div>
+                <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 block mb-1">Priority</span>
+                <select
+                  value={task.priority}
+                  onChange={(e) => handleUpdate({ priority: e.target.value })}
+                  className="w-full bg-white dark:bg-[#1F242C] text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] rounded-xl px-2.5 py-1.5 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  {PRIORITIES.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Assignee Selector */}
+              <div>
+                <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 block mb-1">Assignee</span>
+                <select
+                  value={task.assigned_to || ''}
+                  onChange={(e) => handleUpdate({ assigned_to: e.target.value ? Number(e.target.value) : null })}
+                  className="w-full bg-white dark:bg-[#1F242C] text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] rounded-xl px-2.5 py-1.5 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value="">Unassigned</option>
+                  {projectMembers.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Due Date Picker */}
+              <div>
+                <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 block mb-1">Due Date</span>
+                <input
+                  type="date"
+                  value={task.due_date ? task.due_date.split('T')[0] : ''}
+                  onChange={(e) => handleUpdate({ due_date: e.target.value || null })}
+                  className="w-full bg-white dark:bg-[#1F242C] text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] rounded-xl px-2.5 py-1.5 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer"
+                />
+              </div>
+
+            </div>
+
+            {/* Labels Section */}
+            {projectLabels.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Labels</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {projectLabels.map(lbl => {
+                    const isSelected = task.labels?.some(l => l.id === lbl.id);
+                    return (
+                      <button
+                        key={lbl.id}
+                        onClick={() => handleToggleLabel(lbl.id)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border cursor-pointer ${
+                          isSelected
+                            ? 'text-white shadow-xs'
+                            : 'bg-white dark:bg-[#171A1F] text-slate-600 dark:text-slate-400 border-slate-200/80 dark:border-white/[0.08] hover:border-slate-300'
+                        }`}
+                        style={{
+                          backgroundColor: isSelected ? lbl.color : undefined,
+                          borderColor: isSelected ? lbl.color : undefined
+                        }}
+                      >
+                        {lbl.name}
+                      </button>
+                    );
+                  })}
                 </div>
-                {!isEditingDesc && (
-                  <button
-                    onClick={() => setIsEditingDesc(true)}
-                    className="text-indigo-600 hover:text-indigo-800 font-medium normal-case flex items-center gap-1"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    Edit
-                  </button>
-                )}
+              </div>
+            )}
+
+            {/* Description Section with AI Enhancer */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Description</span>
+                <button
+                  onClick={handleAIEnhance}
+                  disabled={isEnhancing}
+                  className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '6s' }} />
+                  <span>{isEnhancing ? 'Enhancing...' : 'AI Enhance'}</span>
+                </button>
               </div>
 
               {isEditingDesc ? (
                 <div className="space-y-2">
                   <textarea
-                    rows={4}
+                    rows={6}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Add detailed task notes, acceptance criteria, or links..."
-                    className="w-full text-sm text-slate-800 border border-indigo-300 rounded-xl p-3 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                    autoFocus
+                    className="w-full text-xs sm:text-sm text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-[#1F242C] p-3 rounded-xl border border-indigo-500 focus:outline-none"
+                    placeholder="Add task description or acceptance criteria..."
                   />
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleSaveDescription}
-                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors"
-                    >
-                      Save Changes
-                    </button>
-                    <button
-                      onClick={() => {
-                        setDescription(task.description || '');
-                        setIsEditingDesc(false);
-                      }}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-colors"
-                    >
-                      Cancel
-                    </button>
+                    <Button size="xs" variant="primary" onClick={handleSaveDescription}>Save</Button>
+                    <Button size="xs" variant="secondary" onClick={() => { setDescription(task.description || ''); setIsEditingDesc(false); }}>Cancel</Button>
                   </div>
                 </div>
               ) : (
                 <div
                   onClick={() => setIsEditingDesc(true)}
-                  className={`p-3 rounded-xl border border-slate-100 text-sm leading-relaxed cursor-pointer hover:border-slate-200 transition-colors ${
-                    task.description ? 'text-slate-700 bg-slate-50/50' : 'text-slate-400 italic bg-slate-50/30'
-                  }`}
+                  className="p-3.5 rounded-xl bg-slate-50/60 dark:bg-[#171A1F]/40 border border-slate-200/60 dark:border-white/[0.06] hover:bg-slate-50 dark:hover:bg-[#171A1F] cursor-text min-h-[90px] transition-colors"
                 >
-                  {task.description || 'No description provided. Click to add detailed context...'}
+                  {task.description ? (
+                    <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                      {task.description}
+                    </p>
+                  ) : (
+                    <span className="text-xs text-slate-400 dark:text-slate-500 italic">
+                      Click to add a detailed description, user story, or checklist...
+                    </span>
+                  )}
                 </div>
               )}
             </div>
 
             {/* Attachments Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                <span className="flex items-center gap-1.5">
-                  <Paperclip className="w-3.5 h-3.5 text-slate-400" />
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">
                   Attachments ({task.attachments?.length || 0})
                 </span>
-                <div>
+                <label className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 flex items-center gap-1 cursor-pointer">
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Upload</span>
                   <input
                     ref={fileInputRef}
                     type="file"
                     onChange={handleFileUpload}
                     className="hidden"
                   />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                    className="text-indigo-600 hover:text-indigo-800 font-medium normal-case flex items-center gap-1 text-xs cursor-pointer"
-                  >
-                    {isUploading ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-3.5 h-3.5" />
-                        Upload file
-                      </>
-                    )}
-                  </button>
-                </div>
+                </label>
               </div>
 
+              {isUploading && (
+                <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 text-xs font-semibold text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Uploading file to secure storage...</span>
+                </div>
+              )}
+
               {task.attachments?.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {task.attachments.map((file) => (
+                <div className="space-y-1.5">
+                  {task.attachments.map(att => (
                     <div
-                      key={file.id}
-                      className="p-2.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between group hover:border-indigo-200 transition-all"
+                      key={att.id}
+                      className="p-2.5 rounded-xl border border-slate-200/70 dark:border-white/[0.06] bg-slate-50/50 dark:bg-[#171A1F]/40 flex items-center justify-between text-xs"
                     >
-                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                          <Paperclip className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium text-slate-800 truncate">{file.file_name}</p>
-                          <p className="text-[10px] text-slate-400">
-                            {(file.file_size / 1024).toFixed(1)} KB • {file.uploader_name}
-                          </p>
-                        </div>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Paperclip className="w-4 h-4 text-slate-400 shrink-0" />
+                        <span className="font-medium text-slate-800 dark:text-slate-200 truncate">{att.file_name}</span>
+                        <span className="text-[10px] text-slate-400">({(att.file_size / 1024).toFixed(1)} KB)</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <a
-                          href={file.file_url}
+                          href={att.file_url}
+                          download
                           target="_blank"
                           rel="noreferrer"
-                          download={file.file_name}
-                          className="p-1 text-slate-400 hover:text-indigo-600 rounded transition-colors"
-                          title="Download"
+                          className="p-1 text-slate-400 hover:text-indigo-600 rounded-md"
+                          title="Download file"
                         >
                           <Download className="w-3.5 h-3.5" />
                         </a>
                         <button
-                          onClick={() => handleDeleteAttachment(file.id)}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
-                          title="Delete file"
+                          onClick={() => handleDeleteAttachment(att.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded-md"
+                          title="Remove file"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-4 text-center cursor-pointer transition-colors"
-                >
-                  <p className="text-xs text-slate-500 font-medium">Click to upload documents, designs, or specs</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Supports PDF, PNG, JPG, ZIP (max 10MB)</p>
-                </div>
+                <p className="text-xs text-slate-400 dark:text-slate-500 italic">No files attached.</p>
               )}
             </div>
 
-            {/* Tabs: Comments & Task Activity */}
-            <div className="border-t border-slate-100 pt-5 space-y-4">
-              <div className="flex items-center gap-4 border-b border-slate-100 pb-2">
+            {/* Tabs: Comments & Activity */}
+            <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] space-y-4">
+              <div className="flex items-center gap-4 border-b border-slate-100 dark:border-white/[0.06] pb-2 text-xs font-bold">
                 <button
                   onClick={() => setActiveTab('comments')}
-                  className={`flex items-center gap-2 text-xs font-semibold transition-colors pb-1 border-b-2 -mb-2.5 ${
+                  className={`pb-1 transition-colors cursor-pointer ${
                     activeTab === 'comments'
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-slate-400 hover:text-slate-600'
+                      ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600'
+                      : 'text-slate-400 hover:text-slate-700'
                   }`}
                 >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>Discussion ({task.comments?.length || 0})</span>
+                  Comments ({task.comments?.length || 0})
                 </button>
                 <button
                   onClick={() => setActiveTab('activity')}
-                  className={`flex items-center gap-2 text-xs font-semibold transition-colors pb-1 border-b-2 -mb-2.5 ${
+                  className={`pb-1 transition-colors cursor-pointer ${
                     activeTab === 'activity'
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-slate-400 hover:text-slate-600'
+                      ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600'
+                      : 'text-slate-400 hover:text-slate-700'
                   }`}
                 >
-                  <Activity className="w-3.5 h-3.5" />
-                  <span>Activity History</span>
+                  Activity ({task.activities?.length || 0})
                 </button>
               </div>
 
-              {/* Comments Tab */}
+              {/* Comments Tab Content */}
               {activeTab === 'comments' && (
                 <div className="space-y-4">
-                  {/* Post Comment Input */}
+                  {/* New Comment Input */}
                   <form onSubmit={handlePostComment} className="space-y-2">
                     {replyingTo && (
-                      <div className="flex items-center justify-between text-xs px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg">
+                      <div className="flex items-center justify-between px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 rounded-lg text-xs text-indigo-700 dark:text-indigo-300">
                         <span>Replying to <strong>{replyingTo.author_name}</strong></span>
-                        <button onClick={() => setReplyingTo(null)} className="hover:text-indigo-900">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                        <button onClick={() => setReplyingTo(null)} className="text-indigo-500 hover:text-indigo-700"><X className="w-3.5 h-3.5" /></button>
                       </div>
                     )}
-                    <div className="flex items-start gap-2.5">
-                      <img
-                        src={user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'U')}`}
-                        alt=""
-                        className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-200 mt-1 shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <textarea
-                          rows={2}
-                          value={commentText}
-                          onChange={(e) => setCommentText(e.target.value)}
-                          placeholder="Write a comment or reply... (Enter to post)"
-                          className="w-full text-xs text-slate-800 border border-slate-200 rounded-xl p-2.5 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                        />
-                        <div className="flex justify-end mt-1.5">
-                          <button
-                            type="submit"
-                            disabled={submittingComment || !commentText.trim()}
-                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                          >
-                            <Send className="w-3.5 h-3.5" />
-                            <span>Comment</span>
-                          </button>
-                        </div>
-                      </div>
+                    <textarea
+                      rows={2}
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Write a comment or update..."
+                      className="w-full p-3 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#1F242C] text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        type="submit"
+                        size="xs"
+                        variant="primary"
+                        isLoading={submittingComment}
+                        disabled={!commentText.trim()}
+                        icon={Send}
+                      >
+                        Post Comment
+                      </Button>
                     </div>
                   </form>
 
-                  {/* Comment Thread List */}
+                  {/* Comments Thread List */}
                   <div className="space-y-3 pt-2">
-                    {rootComments.length === 0 ? (
-                      <p className="text-xs text-slate-400 italic text-center py-4">
-                        No comments yet. Start the conversation!
-                      </p>
-                    ) : (
-                      rootComments.map((comm) => {
-                        const replies = getReplies(comm.id);
-                        return (
-                          <div key={comm.id} className="space-y-2">
-                            {/* Root Comment Box */}
-                            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100/80 space-y-1.5 group">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <img
-                                    src={comm.author_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(comm.author_name)}`}
-                                    alt=""
-                                    className="w-6 h-6 rounded-full object-cover ring-1 ring-slate-200"
-                                  />
-                                  <span className="text-xs font-semibold text-slate-800">{comm.author_name}</span>
-                                  <span className="text-[10px] text-slate-400">
-                                    {comm.created_at ? formatDistanceToNow(new Date(comm.created_at), { addSuffix: true }) : ''}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    onClick={() => setReplyingTo(comm)}
-                                    className="text-[11px] text-slate-500 hover:text-indigo-600 font-medium px-1.5 py-0.5 rounded hover:bg-slate-200/50"
-                                  >
-                                    Reply
-                                  </button>
-                                  {comm.user_id === user?.id && (
-                                    <>
-                                      <button
-                                        onClick={() => {
-                                          setEditingCommentId(comm.id);
-                                          setEditingCommentText(comm.content);
-                                        }}
-                                        className="text-[11px] text-slate-500 hover:text-indigo-600 font-medium px-1.5 py-0.5 rounded hover:bg-slate-200/50"
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteComment(comm.id)}
-                                        className="text-[11px] text-slate-500 hover:text-rose-600 font-medium px-1.5 py-0.5 rounded hover:bg-slate-200/50"
-                                      >
-                                        Delete
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-
-                              {editingCommentId === comm.id ? (
-                                <div className="space-y-1.5 pt-1">
-                                  <input
-                                    type="text"
-                                    value={editingCommentText}
-                                    onChange={(e) => setEditingCommentText(e.target.value)}
-                                    className="w-full text-xs border border-indigo-300 rounded-lg p-1.5"
-                                  />
-                                  <div className="flex gap-2">
-                                    <button
-                                      onClick={() => handleSaveEditedComment(comm.id)}
-                                      className="px-2 py-0.5 bg-indigo-600 text-white rounded text-[11px]"
-                                    >
-                                      Save
-                                    </button>
-                                    <button
-                                      onClick={() => setEditingCommentId(null)}
-                                      className="px-2 py-0.5 bg-slate-200 text-slate-600 rounded text-[11px]"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <p className="text-xs text-slate-700 leading-relaxed pl-8">{comm.content}</p>
+                    {rootComments.map(comment => (
+                      <div key={comment.id} className="space-y-2 text-xs">
+                        <div className="p-3 rounded-xl bg-slate-50/70 dark:bg-[#171A1F]/60 border border-slate-200/60 dark:border-white/[0.06] space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <img
+                                src={comment.author_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author_name || 'U')}`}
+                                alt={comment.author_name}
+                                className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-200"
+                              />
+                              <span className="font-bold text-slate-900 dark:text-white">{comment.author_name}</span>
+                              <span className="text-[10px] text-slate-400">
+                                {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 text-[11px]">
+                              <button
+                                onClick={() => setReplyingTo(comment)}
+                                className="text-slate-400 hover:text-indigo-600 px-1"
+                              >
+                                Reply
+                              </button>
+                              {comment.user_id === user?.id && (
+                                <button
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                  className="text-slate-400 hover:text-rose-600 px-1"
+                                >
+                                  Delete
+                                </button>
                               )}
                             </div>
-
-                            {/* Nested Replies */}
-                            {replies.length > 0 && (
-                              <div className="pl-6 space-y-2">
-                                {replies.map((reply) => (
-                                  <div
-                                    key={reply.id}
-                                    className="p-2.5 rounded-xl bg-white border border-slate-200/70 space-y-1 group"
-                                  >
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-2">
-                                        <CornerDownRight className="w-3 h-3 text-slate-400" />
-                                        <img
-                                          src={reply.author_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(reply.author_name)}`}
-                                          alt=""
-                                          className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-200"
-                                        />
-                                        <span className="text-xs font-semibold text-slate-800">{reply.author_name}</span>
-                                        <span className="text-[10px] text-slate-400">
-                                          {reply.created_at ? formatDistanceToNow(new Date(reply.created_at), { addSuffix: true }) : ''}
-                                        </span>
-                                      </div>
-                                      {reply.user_id === user?.id && (
-                                        <button
-                                          onClick={() => handleDeleteComment(reply.id)}
-                                          className="opacity-0 group-hover:opacity-100 text-[10px] text-slate-400 hover:text-rose-600"
-                                        >
-                                          Delete
-                                        </button>
-                                      )}
-                                    </div>
-                                    <p className="text-xs text-slate-700 leading-relaxed pl-7">{reply.content}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
                           </div>
-                        );
-                      })
-                    )}
+                          <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                            {comment.content}
+                          </p>
+                        </div>
+
+                        {/* Nested Replies */}
+                        {getReplies(comment.id).map(reply => (
+                          <div key={reply.id} className="ml-6 p-2.5 rounded-xl bg-slate-50/50 dark:bg-[#171A1F]/40 border border-slate-200/50 dark:border-white/[0.04] space-y-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <CornerDownRight className="w-3 h-3 text-slate-400" />
+                                <span className="font-bold text-slate-900 dark:text-white">{reply.author_name}</span>
+                                <span className="text-[10px] text-slate-400">
+                                  {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}
+                                </span>
+                              </div>
+                              {reply.user_id === user?.id && (
+                                <button
+                                  onClick={() => handleDeleteComment(reply.id)}
+                                  className="text-slate-400 hover:text-rose-600 text-[10px]"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap pl-5 leading-relaxed">
+                              {reply.content}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
 
-              {/* Activity History Tab */}
+              {/* Activity Tab Content */}
               {activeTab === 'activity' && (
-                <div className="space-y-3 py-2">
-                  {task.activities?.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic text-center py-4">No logged history yet.</p>
-                  ) : (
-                    task.activities?.map((act) => (
-                      <div key={act.id} className="flex items-start gap-2.5 text-xs text-slate-600">
+                <div className="space-y-2.5 text-xs">
+                  {task.activities?.length > 0 ? (
+                    task.activities.map(act => (
+                      <div key={act.id} className="flex items-start gap-2.5 py-1">
                         <img
                           src={act.user_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(act.user_name || 'U')}`}
-                          alt=""
+                          alt={act.user_name}
                           className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-200 mt-0.5"
                         />
-                        <div className="flex-1">
-                          <p>
-                            <strong className="text-slate-800">{act.user_name}</strong>{' '}
-                            <span className="text-slate-500">
-                              {act.action === 'created_task' && 'created this task'}
-                              {act.action === 'moved_task' && 'updated status'}
-                              {act.action === 'assigned_task' && 'updated assignee'}
-                              {act.action === 'added_comment' && 'commented'}
-                              {act.action === 'uploaded_attachment' && 'uploaded an attachment'}
-                            </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-slate-700 dark:text-slate-300">
+                            <strong className="font-semibold text-slate-900 dark:text-white">{act.user_name}</strong>{' '}
+                            {act.action}
                           </p>
                           <span className="text-[10px] text-slate-400">
-                            {act.created_at ? formatDistanceToNow(new Date(act.created_at), { addSuffix: true }) : ''}
+                            {formatDistanceToNow(new Date(act.created_at), { addSuffix: true })}
                           </span>
                         </div>
                       </div>
                     ))
+                  ) : (
+                    <p className="text-slate-400 dark:text-slate-500 italic py-4 text-center">No activity history yet.</p>
                   )}
                 </div>
               )}
-            </div>
-          </div>
 
-          {/* Right Column: Metadata Properties Controls */}
-          <div className="p-6 bg-slate-50/50 space-y-5">
-            
-            {/* Status Dropdown */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Status</label>
-              <select
-                value={task.status}
-                onChange={(e) => handleUpdate({ status: e.target.value })}
-                className="w-full text-xs font-semibold bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 cursor-pointer shadow-2xs"
-              >
-                {COLUMNS.map((col) => (
-                  <option key={col} value={col}>{col}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Priority Selector */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Priority</label>
-              <select
-                value={task.priority}
-                onChange={(e) => handleUpdate({ priority: e.target.value })}
-                className="w-full text-xs font-semibold bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 cursor-pointer shadow-2xs"
-              >
-                <option value="Low">🟢 Low</option>
-                <option value="Medium">🔵 Medium</option>
-                <option value="High">🟠 High</option>
-                <option value="Urgent">🔴 Urgent</option>
-              </select>
-            </div>
-
-            {/* Assignee Selector */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Assignee</label>
-              <select
-                value={task.assignee_id || ''}
-                onChange={(e) => handleUpdate({ assignee_id: e.target.value ? Number(e.target.value) : null })}
-                className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 cursor-pointer shadow-2xs"
-              >
-                <option value="">Unassigned</option>
-                {projectMembers.map((m) => (
-                  <option key={m.user_id} value={m.user_id}>
-                    {m.name} ({m.role})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Due Date Picker */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Due Date</label>
-              <input
-                type="date"
-                value={task.due_date ? task.due_date.split('T')[0] : ''}
-                onChange={(e) => handleUpdate({ due_date: e.target.value || null })}
-                className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 cursor-pointer shadow-2xs"
-              />
-            </div>
-
-            {/* Labels Tag Manager */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                Labels ({task.labels?.length || 0})
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {projectLabels.map((lbl) => {
-                  const isSelected = task.labels?.some(l => l.id === lbl.id);
-                  return (
-                    <button
-                      key={lbl.id}
-                      onClick={() => handleToggleLabel(lbl.id)}
-                      className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${
-                        isSelected
-                          ? 'border-transparent text-white shadow-2xs'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                      }`}
-                      style={{
-                        backgroundColor: isSelected ? lbl.color : undefined
-                      }}
-                    >
-                      {lbl.name}
-                      {isSelected && <Check className="w-3 h-3" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Task Info Summary */}
-            <div className="border-t border-slate-200/80 pt-4 space-y-1.5 text-[11px] text-slate-400">
-              <p>Created: {task.created_at ? format(new Date(task.created_at), 'MMM d, yyyy') : 'Recently'}</p>
-              <p>Created by: {task.creator_name || 'System'}</p>
-              <p>Last updated: {task.updated_at ? formatDistanceToNow(new Date(task.updated_at), { addSuffix: true }) : 'Recently'}</p>
             </div>
 
           </div>
 
         </div>
-
       </div>
-    </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={isConfirmDeleteOpen}
+        title="Delete this task?"
+        description="This will permanently delete the task, attachments, and threaded comments. This action cannot be undone."
+        confirmText="Delete Task"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onClose={() => setIsConfirmDeleteOpen(false)}
+      />
+    </>
   );
 };
 

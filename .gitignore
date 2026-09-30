@@ -16,8 +16,18 @@ server/uploads/*
 server/.env
 client/.env.local
 
+# Java & Maven
+backend-java/target/
+target/
+*.class
+*.jar
+*.war
+backend-java/uploads/*
+!backend-java/uploads/.gitkeep
+
 # Operating System & IDE
 .DS_Store
 *.log
 .vscode/
 .idea/
+
