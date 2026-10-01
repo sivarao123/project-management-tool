@@ -1,14 +1,16 @@
 # TaskFlow — Modern Full-Stack Project Management Tool
 > *"Plan. Collaborate. Get Things Done."*
 
-[![Node.js](https://img.shields.io/badge/Node.js-v20+-green.svg)](https://nodejs.org)
+[![Java](https://img.shields.io/badge/Java-21%20LTS-orange.svg)](https://openjdk.org)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![React](https://img.shields.io/badge/React-18.3-blue.svg)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-6.0-purple.svg)](https://vitejs.dev)
-[![Socket.io](https://img.shields.io/badge/Socket.io-4.8-black.svg)](https://socket.io)
+[![Socket.io](https://img.shields.io/badge/Socket.io-Netty-black.svg)](https://socket.io)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org)
-[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-cyan.svg)](https://tailwindcss.com)
+[![Flyway](https://img.shields.io/badge/Flyway-Migrations-red.svg)](https://flywaydb.org)
+[![Swagger](https://img.shields.io/badge/OpenAPI-3.0-green.svg)](https://swagger.io)
 
-A modern, production-grade project management application inspired by Trello and Asana, built specifically for the **CodeAlpha Full Stack Development — Task 3** assignment.
+A modern, production-grade project management application inspired by Trello and Asana. Featuring an enterprise **Java 21 LTS / Spring Boot 3** primary backend, **PostgreSQL** relational database, **Netty-SocketIO** real-time collaboration, and an autonomous **Agentic AI Copilot**.
 
 ---
 
@@ -239,19 +241,54 @@ This tests:
 
 ---
 
-## 🧪 Comprehensive Automated Test Suites
+## 🚀 Running the Application (Primary Java Backend)
 
-TaskFlow includes 3 end-to-end automated verification suites:
+### Prerequisites
+- **Java 21 LTS** or **OpenJDK 27**
+- **Maven 3.9+**
+- **Node.js 20+** (for frontend)
+- **PostgreSQL 16** running on `localhost:5432` with database `taskflow`
+
+### 1. Start the Java Backend
+```bash
+# Option A: Run packaged JAR
+JAVA_HOME=/opt/homebrew/opt/openjdk java -jar backend-java/target/taskflow-backend-1.0.0.jar
+
+# Option B: Run via Maven
+cd backend-java
+JAVA_HOME=/opt/homebrew/opt/openjdk mvn spring-boot:run
+```
+- **Backend API**: `http://localhost:5001`
+- **Interactive Swagger / OpenAPI Docs**: `http://localhost:5001/swagger-ui.html`
+- **Health Check**: `http://localhost:5001/api/health`
+
+### 2. Start the Frontend
+```bash
+npm --prefix client run dev
+```
+- **Web App**: `http://localhost:5173`
+
+---
+
+## 🔄 Safe Rollback Guide (to Node.js)
+
+The previous Node.js/Express implementation has been tagged for safety:
+```bash
+# To roll back to the pure Node.js backend:
+git checkout node-final
+
+# Start the Node.js backend:
+node server/server.js
+```
+
+---
+
+## 🧪 Automated Test Suites
 
 ```bash
-# 1. Full REST API Verification (12/12 passing)
-node test-api.js
-
-# 2. Multi-Window Real-Time WebSocket Verification (12/12 passing)
-node test-realtime.js
-
-# 3. Autonomous Agentic AI Verification (13/13 passing)
-node test-ai-agent.js
+# Run Java Spring Boot unit & integration tests (22/22 passing)
+cd backend-java
+JAVA_HOME=/opt/homebrew/opt/openjdk mvn test
 ```
 
 ---

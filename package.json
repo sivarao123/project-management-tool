@@ -1,14 +1,16 @@
 {
   "name": "taskflow-workspace",
   "version": "1.0.0",
-  "description": "TaskFlow - Full Stack Real-time Project Management System",
+  "description": "TaskFlow - Full Stack Real-time Project Management System (Java 21 Spring Boot + React)",
   "scripts": {
-    "install:all": "npm --prefix server install && npm --prefix client install",
-    "seed": "npm --prefix server run seed",
-    "server": "npm --prefix server run dev",
-    "client": "npm --prefix client run dev"
+    "server:java": "JAVA_HOME=/opt/homebrew/opt/openjdk java -jar backend-java/target/taskflow-backend-1.0.0.jar",
+    "build:java": "cd backend-java && JAVA_HOME=/opt/homebrew/opt/openjdk mvn clean package -DskipTests",
+    "test:java": "cd backend-java && JAVA_HOME=/opt/homebrew/opt/openjdk mvn test",
+    "server": "npm run server:java",
+    "client": "npm --prefix client run dev",
+    "dev": "npm run server:java & npm run client"
   },
-  "keywords": ["taskflow", "project-management", "kanban", "trello", "asana"],
+  "keywords": ["taskflow", "project-management", "kanban", "spring-boot", "react"],
   "author": "CodeAlpha Developer",
   "license": "MIT"
 }
